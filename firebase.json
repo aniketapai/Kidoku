@@ -1,0 +1,23 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "yomu-1a574",
+          "appId": "1:328849464022:android:57ae6618ffa34b98d94777",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "yomu-1a574",
+          "configurations": { "android": "1:328849464022:android:57ae6618ffa34b98d94777" }
+        }
+      }
+    }
+  }
+}

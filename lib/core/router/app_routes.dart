@@ -1,0 +1,9 @@
+abstract final class AppRoutes {
+  static const signIn = '/sign-in';
+  static const library = '/library';
+  static const review = '/review';
+  static const vocabulary = '/vocabulary';
+  static const dictionary = '/dictionary';
+  static const profile = '/profile';
+  static const storyReader = '/story';
+}
