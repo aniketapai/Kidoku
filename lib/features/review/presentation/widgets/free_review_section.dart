@@ -6,22 +6,34 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../../core/database/tables/deck_card_progress_table.dart';
 import '../../../../core/database/tables/deck_cards_table.dart';
+import '../../../../core/widgets/clearable_search_field.dart';
 import '../../../decks/application/deck_data_providers.dart';
 import '../../../decks/application/deck_review_actions_provider.dart';
 import '../../../decks/application/deck_review_provider.dart';
 import 'deck_flash_card.dart';
 
+enum _FreeReviewType { vocab, kanji }
+
 const _kLevels = ['N5', 'N4', 'N3'];
 const _kCounts = [10, 20, 30, 50, 100];
-const _kTypeLabels = {DeckCardType.kanji: 'Kanji', DeckCardType.vocab: 'Vocab'};
+
+/// A resurfaced "Again" card doesn't come back immediately (that would just
+/// be re-showing the same card twice in a row) — it's reinserted somewhere
+/// between 3 and 7 cards later in the queue, so the session still flows
+/// while the miss isn't forgotten either.
+const _kAgainMinGap = 3;
+const _kAgainJitter = 5;
 
 /// A standalone practice session, separate from the daily-gated Decks
-/// queue in [deckReviewQueueProvider]: the user picks how many cards, which
-/// JLPT level tags, and kanji/vocab/both, and the session pulls a random
-/// sample straight from [deckCardsProvider] — ignoring due dates and the
-/// [newDeckCardsPerDayProvider] daily allowance entirely. Grading still
-/// updates the same SRS progress rows, so it isn't wasted study time; it
-/// just isn't gated by "today's" limits.
+/// queue in [deckReviewQueueProvider]: the user builds a pool either by
+/// searching for and combining specific vocab week decks (see
+/// [vocabWeekGroupsProvider]) or, for kanji (which has no week grouping),
+/// by JLPT level — then a random sample is drawn from that pool, ignoring
+/// due dates and the [newDeckCardsPerDayProvider] daily allowance entirely.
+/// Grading still updates the same SRS progress rows, so it isn't wasted
+/// study time; it just isn't gated by "today's" limits. Within a session,
+/// grading a card "Again" requeues it later (see [_kAgainMinGap]) instead
+/// of dropping it — the session's total count grows as misses happen.
 class FreeReviewSection extends ConsumerStatefulWidget {
   const FreeReviewSection({super.key});
 
@@ -30,36 +42,53 @@ class FreeReviewSection extends ConsumerStatefulWidget {
 }
 
 class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
-  final Set<String> _selectedLevels = {..._kLevels};
-  final Set<DeckCardType> _selectedTypes = {..._kTypeLabels.keys};
-  int? _count = 20;
+  _FreeReviewType _type = _FreeReviewType.vocab;
   ReviewDirection _direction = ReviewDirection.jpToEn;
+  int? _count = 20;
 
-  List<DeckCard>? _session;
-  int _index = 0;
+  final Set<String> _selectedWeekKeys = {};
+  String _weekSearch = '';
+
+  final Set<String> _selectedKanjiLevels = {..._kLevels};
+
+  List<DeckCard>? _queue;
+  int _uniqueCount = 0;
+  int _totalEver = 0;
+  int _gradedCount = 0;
   bool _isFlipped = false;
 
-  List<DeckCard> _eligible(List<DeckCard> allCards) {
+  List<DeckCard> _vocabEligible(List<VocabWeekGroup> weekGroups) {
+    final cards = <DeckCard>[];
+    for (final group in weekGroups) {
+      if (_selectedWeekKeys.contains(group.key)) cards.addAll(group.cards);
+    }
+    return cards;
+  }
+
+  List<DeckCard> _kanjiEligible(List<DeckCard> allCards) {
     return allCards
-        .where((c) => _selectedLevels.contains(c.level) && _selectedTypes.contains(c.cardType))
+        .where(
+          (c) => c.cardType == DeckCardType.kanji && _selectedKanjiLevels.contains(c.level),
+        )
         .toList();
   }
 
-  void _start(List<DeckCard> allCards) {
-    final eligible = _eligible(allCards);
-    if (eligible.isEmpty) return;
-    final shuffled = List.of(eligible)..shuffle(Random());
+  void _start(List<DeckCard> pool) {
+    if (pool.isEmpty) return;
+    final shuffled = List.of(pool)..shuffle(Random());
+    final selected = shuffled.take(_count ?? shuffled.length).toList();
     setState(() {
-      _session = shuffled.take(_count ?? shuffled.length).toList();
-      _index = 0;
+      _queue = selected;
+      _uniqueCount = selected.length;
+      _totalEver = selected.length;
+      _gradedCount = 0;
       _isFlipped = false;
     });
   }
 
   void _endSession() {
     setState(() {
-      _session = null;
-      _index = 0;
+      _queue = null;
       _isFlipped = false;
     });
   }
@@ -67,7 +96,14 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
   void _grade(DeckCard card, {required bool correct}) {
     ref.read(deckReviewActionsProvider.notifier).gradeReview(card.id, _direction, correct: correct);
     setState(() {
-      _index++;
+      final queue = _queue!;
+      queue.removeAt(0);
+      _gradedCount++;
+      if (!correct) {
+        final offset = _kAgainMinGap + Random().nextInt(_kAgainJitter);
+        queue.insert(min(offset, queue.length), card);
+        _totalEver++;
+      }
       _isFlipped = false;
     });
   }
@@ -75,17 +111,25 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
   @override
   Widget build(BuildContext context) {
     final allCards = ref.watch(deckCardsProvider).value ?? const [];
-    final session = _session;
+    final weekGroups = ref.watch(vocabWeekGroupsProvider);
+    final queue = _queue;
 
-    if (session != null) {
-      return _buildSession(context, session);
+    if (queue != null) {
+      return _buildSession(context, queue);
     }
-    return _buildConfig(context, allCards);
+    return _buildConfig(context, allCards, weekGroups);
   }
 
-  Widget _buildConfig(BuildContext context, List<DeckCard> allCards) {
+  Widget _buildConfig(
+    BuildContext context,
+    List<DeckCard> allCards,
+    List<VocabWeekGroup> weekGroups,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
-    final eligibleCount = _eligible(allCards).length;
+    final pool = _type == _FreeReviewType.vocab
+        ? _vocabEligible(weekGroups)
+        : _kanjiEligible(allCards);
+    final eligibleCount = pool.length;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 110),
@@ -98,6 +142,16 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
             style: Theme.of(
               context,
             ).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.6)),
+          ),
+          const SizedBox(height: 20),
+          SegmentedButton<_FreeReviewType>(
+            segments: const [
+              ButtonSegment(value: _FreeReviewType.vocab, label: Text('Vocab')),
+              ButtonSegment(value: _FreeReviewType.kanji, label: Text('Kanji')),
+            ],
+            showSelectedIcon: false,
+            selected: {_type},
+            onSelectionChanged: (selection) => setState(() => _type = selection.first),
           ),
           const SizedBox(height: 20),
           SegmentedButton<ReviewDirection>(
@@ -135,60 +189,17 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Text('Levels', style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final level in _kLevels)
-                FilterChip(
-                  label: Text(level),
-                  selected: _selectedLevels.contains(level),
-                  onSelected: (selected) => setState(() {
-                    if (selected) {
-                      _selectedLevels.add(level);
-                    } else {
-                      _selectedLevels.remove(level);
-                    }
-                  }),
-                  selectedColor: colorScheme.primary.withValues(alpha: 0.16),
-                  side: BorderSide.none,
-                  backgroundColor: colorScheme.surfaceContainerHighest,
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text('Type', style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final entry in _kTypeLabels.entries)
-                FilterChip(
-                  label: Text(entry.value),
-                  selected: _selectedTypes.contains(entry.key),
-                  onSelected: (selected) => setState(() {
-                    if (selected) {
-                      _selectedTypes.add(entry.key);
-                    } else {
-                      _selectedTypes.remove(entry.key);
-                    }
-                  }),
-                  selectedColor: colorScheme.secondary.withValues(alpha: 0.16),
-                  side: BorderSide.none,
-                  backgroundColor: colorScheme.surfaceContainerHighest,
-                ),
-            ],
-          ),
+          const SizedBox(height: 20),
+          if (_type == _FreeReviewType.vocab)
+            _buildVocabPicker(context, weekGroups)
+          else
+            _buildKanjiPicker(context),
           const SizedBox(height: 24),
           Text(
-            _selectedLevels.isEmpty
-                ? 'Select at least one level'
-                : _selectedTypes.isEmpty
-                ? 'Select at least one type'
+            eligibleCount == 0
+                ? (_type == _FreeReviewType.vocab
+                      ? 'Select at least one week'
+                      : 'Select at least one level')
                 : '$eligibleCount word${eligibleCount == 1 ? '' : 's'} match this selection',
             style: Theme.of(
               context,
@@ -198,7 +209,7 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: eligibleCount == 0 ? null : () => _start(allCards),
+              onPressed: eligibleCount == 0 ? null : () => _start(pool),
               child: const Text('Start free review'),
             ),
           ),
@@ -207,10 +218,152 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
     );
   }
 
-  Widget _buildSession(BuildContext context, List<DeckCard> session) {
+  Widget _buildVocabPicker(BuildContext context, List<VocabWeekGroup> weekGroups) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final query = _weekSearch.trim().toLowerCase();
+    final filtered = query.isEmpty
+        ? weekGroups
+        : weekGroups.where((g) => g.label.toLowerCase().contains(query)).toList();
+    final selectedGroups = weekGroups.where((g) => _selectedWeekKeys.contains(g.key)).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Weeks', style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final level in _kLevels)
+              FilterChip(
+                label: Text(level),
+                selected:
+                    weekGroups.any((g) => g.level == level) &&
+                    weekGroups
+                        .where((g) => g.level == level)
+                        .every((g) => _selectedWeekKeys.contains(g.key)),
+                onSelected: (selected) => setState(() {
+                  final keysForLevel = weekGroups
+                      .where((g) => g.level == level)
+                      .map((g) => g.key);
+                  if (selected) {
+                    _selectedWeekKeys.addAll(keysForLevel);
+                  } else {
+                    _selectedWeekKeys.removeAll(keysForLevel);
+                  }
+                }),
+                selectedColor: colorScheme.primary.withValues(alpha: 0.16),
+                side: BorderSide.none,
+                backgroundColor: colorScheme.surfaceContainerHighest,
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ClearableSearchField(
+          hintText: 'Search weeks — e.g. "N4 Week 3" or "money"…',
+          onChanged: (value) => setState(() => _weekSearch = value),
+        ),
+        if (selectedGroups.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final group in selectedGroups)
+                InputChip(
+                  label: Text(group.label),
+                  onDeleted: () => setState(() => _selectedWeekKeys.remove(group.key)),
+                  backgroundColor: colorScheme.primary.withValues(alpha: 0.12),
+                  side: BorderSide.none,
+                ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 260,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colorScheme.surfaceContainerHighest),
+            ),
+            child: filtered.isEmpty
+                ? Center(
+                    child: Text(
+                      'No weeks match your search',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: filtered.length,
+                    separatorBuilder: (context, index) =>
+                        Divider(height: 1, color: colorScheme.surfaceContainerHighest),
+                    itemBuilder: (context, index) {
+                      final group = filtered[index];
+                      final selected = _selectedWeekKeys.contains(group.key);
+                      return CheckboxListTile(
+                        dense: true,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        value: selected,
+                        onChanged: (_) => setState(() {
+                          if (selected) {
+                            _selectedWeekKeys.remove(group.key);
+                          } else {
+                            _selectedWeekKeys.add(group.key);
+                          }
+                        }),
+                        title: Text(group.label, style: Theme.of(context).textTheme.bodyMedium),
+                        subtitle: Text(
+                          '${group.cards.length} words',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildKanjiPicker(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Levels', style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final level in _kLevels)
+              FilterChip(
+                label: Text(level),
+                selected: _selectedKanjiLevels.contains(level),
+                onSelected: (selected) => setState(() {
+                  if (selected) {
+                    _selectedKanjiLevels.add(level);
+                  } else {
+                    _selectedKanjiLevels.remove(level);
+                  }
+                }),
+                selectedColor: colorScheme.primary.withValues(alpha: 0.16),
+                side: BorderSide.none,
+                backgroundColor: colorScheme.surfaceContainerHighest,
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSession(BuildContext context, List<DeckCard> queue) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    if (_index >= session.length) {
+    if (queue.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -221,7 +374,7 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
               const SizedBox(height: 12),
               Text('Session complete', style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 8),
-              Text('Reviewed ${session.length} word${session.length == 1 ? '' : 's'}.'),
+              Text('Reviewed $_uniqueCount word${_uniqueCount == 1 ? '' : 's'}.'),
               const SizedBox(height: 20),
               FilledButton(onPressed: _endSession, child: const Text('Start another session')),
             ],
@@ -230,7 +383,7 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
       );
     }
 
-    final card = session[_index];
+    final card = queue.first;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 110),
@@ -240,7 +393,7 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '${_index + 1} of ${session.length}',
+                '${_gradedCount + 1} of $_totalEver',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: colorScheme.onSurface.withValues(alpha: 0.6),
                 ),

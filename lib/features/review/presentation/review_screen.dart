@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/database/meanings_codec.dart';
 import '../../../core/database/tables/deck_card_progress_table.dart';
 import '../../../core/database/tables/deck_cards_table.dart';
 import '../../../core/srs/srs_config.dart';
-import '../../../core/widgets/jlpt_level_chip.dart';
 import '../../decks/application/deck_review_actions_provider.dart';
 import '../../decks/application/deck_review_provider.dart';
-import '../../reader/application/user_word_actions_provider.dart';
-import '../application/due_words_provider.dart';
 import 'widgets/deck_flash_card.dart';
 import 'widgets/free_review_section.dart';
+import 'widgets/my_words_section.dart';
 
 enum _ReviewMode { myWords, decks, freeReview }
 
@@ -25,18 +22,8 @@ class ReviewScreen extends ConsumerStatefulWidget {
 class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   _ReviewMode _mode = _ReviewMode.myWords;
 
-  bool _isFlipped = false;
-  String? _currentDictionaryForm;
-
   bool _isDeckFlipped = false;
   String? _currentDeckCardKey;
-
-  void _grade(DueWord card, {required bool correct}) {
-    ref
-        .read(userWordActionsProvider.notifier)
-        .gradeReview(card.userWord.dictionaryForm, correct: correct);
-    setState(() => _isFlipped = false);
-  }
 
   void _gradeDeck(DeckReviewCard card, {required bool correct}) {
     ref
@@ -87,80 +74,13 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           ),
           Expanded(
             child: switch (_mode) {
-              _ReviewMode.myWords => _buildMyWords(context),
+              _ReviewMode.myWords => const MyWordsSection(),
               _ReviewMode.decks => _buildDecks(context),
               _ReviewMode.freeReview => const FreeReviewSection(),
             },
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildMyWords(BuildContext context) {
-    final dueAsync = ref.watch(dueWordsProvider);
-
-    return dueAsync.when(
-      data: (dueWords) {
-        if (dueWords.isEmpty) return const _EmptyState();
-
-        final card = dueWords.first;
-        if (_currentDictionaryForm != card.userWord.dictionaryForm) {
-          _currentDictionaryForm = card.userWord.dictionaryForm;
-          _isFlipped = false;
-        }
-
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 110),
-          child: Column(
-            children: [
-              Text(
-                '${dueWords.length} due',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: Center(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _isFlipped = !_isFlipped),
-                    child: _FlashCard(card: card, isFlipped: _isFlipped),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              if (_isFlipped)
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => _grade(card, correct: false),
-                        child: const Text('Again'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () => _grade(card, correct: true),
-                        child: const Text('Good'),
-                      ),
-                    ),
-                  ],
-                )
-              else
-                Text(
-                  'Tap the card to reveal',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stackTrace) => Center(child: Text('Failed to load review queue: $error')),
     );
   }
 
@@ -317,62 +237,6 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                 ),
         ),
       ],
-    );
-  }
-}
-
-class _FlashCard extends StatelessWidget {
-  const _FlashCard({required this.card, required this.isFlipped});
-
-  final DueWord card;
-  final bool isFlipped;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final entry = card.entry;
-
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 220),
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colorScheme.surfaceContainerHighest),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (entry != null) JlptLevelChip(level: entry.jlptLevel),
-          const SizedBox(height: 12),
-          Text(
-            entry?.reading ?? '',
-            style: textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurface.withValues(alpha: 0.6),
-            ),
-          ),
-          Text(card.userWord.dictionaryForm, style: textTheme.headlineMedium),
-          if (isFlipped) ...[
-            const SizedBox(height: 20),
-            Divider(color: colorScheme.surfaceContainerHighest),
-            const SizedBox(height: 12),
-            Text(
-              entry?.partOfSpeech ?? '',
-              style: textTheme.labelMedium?.copyWith(
-                color: colorScheme.onSurface.withValues(alpha: 0.5),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              entry != null ? decodeMeanings(entry.meanings) : 'No dictionary entry.',
-              style: textTheme.bodyLarge,
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ],
-      ),
     );
   }
 }

@@ -22,8 +22,13 @@ class StatTile extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: iconColor, size: 22),
-        const SizedBox(height: 6),
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.12), shape: BoxShape.circle),
+          child: Icon(icon, color: iconColor, size: 20),
+        ),
+        const SizedBox(height: 8),
         Text(value, style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
         Text(
           label,

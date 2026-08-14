@@ -19,7 +19,7 @@ class UserWordRepository {
 
   Stream<UserWord?> watch(String dictionaryForm) => _db.watchUserWord(dictionaryForm);
 
-  Stream<List<UserWord>> watchDue() => _db.watchDueUserWords();
+  Stream<List<UserWord>> watchAll() => _db.watchAllUserWords();
 
   Future<void> save(String dictionaryForm) async {
     await _db.markWordSaved(dictionaryForm);
@@ -28,11 +28,6 @@ class UserWordRepository {
 
   Future<void> markKnown(String dictionaryForm) async {
     await _db.markWordKnown(dictionaryForm);
-    await _push(dictionaryForm);
-  }
-
-  Future<void> gradeReview(String dictionaryForm, {required bool correct}) async {
-    await _db.gradeReview(dictionaryForm, correct: correct);
     await _push(dictionaryForm);
   }
 
@@ -48,8 +43,6 @@ class UserWordRepository {
       'status': row.status.name,
       'savedAt': row.savedAt?.toIso8601String(),
       'lastSeen': row.lastSeen.toIso8601String(),
-      'srsDueAt': row.srsDueAt?.toIso8601String(),
-      'srsInterval': row.srsInterval,
     });
   }
 
@@ -73,10 +66,6 @@ class UserWordRepository {
               savedAt: Value(
                 data['savedAt'] != null ? DateTime.parse(data['savedAt'] as String) : null,
               ),
-              srsDueAt: Value(
-                data['srsDueAt'] != null ? DateTime.parse(data['srsDueAt'] as String) : null,
-              ),
-              srsInterval: Value(data['srsInterval'] as int? ?? 0),
             ),
           );
     }

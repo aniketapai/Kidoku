@@ -11,6 +11,7 @@ import 'widgets/activity_heatmap.dart';
 import 'widgets/profile_header_card.dart';
 import 'widgets/profile_section_card.dart';
 import 'widgets/stat_tile.dart';
+import 'widgets/story_progress_section.dart';
 
 /// The router only ever shows this screen to a signed-in (non-anonymous)
 /// user — see the auth redirect in app_router.dart — so there's no sign-in
@@ -37,6 +38,8 @@ class ProfileScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 20),
           const _StatsSection(),
+          const SizedBox(height: 16),
+          const StoryProgressSection(),
           const SizedBox(height: 16),
           const _ActivitySection(),
           const SizedBox(height: 16),

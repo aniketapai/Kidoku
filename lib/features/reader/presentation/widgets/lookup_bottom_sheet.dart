@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/meanings_codec.dart';
 import '../../../../core/database/tables/user_words_table.dart';
+import '../../../../core/kanji/widgets/kanji_stroke_sheet.dart';
 import '../../../../core/text/kanji_utils.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/jlpt_level_chip.dart';
@@ -120,10 +121,13 @@ class LookupBottomSheet extends ConsumerWidget {
   }
 }
 
-/// Per-kanji JLPT level tags for [word]'s individual characters — distinct
-/// from the word's own [JlptLevelChip], since a vocab entry can be tagged
-/// N5 while spelled with a kanji that isn't actually N5 on its own. Renders
-/// nothing for kana-only words or kanji absent from the imported decks.
+/// Per-kanji chips for [word]'s individual characters — distinct from the
+/// word's own [JlptLevelChip], since a vocab entry can be tagged N5 while
+/// spelled with a kanji that isn't actually N5 on its own. Every distinct
+/// kanji is tappable to open its stroke-order animation
+/// ([showKanjiStrokeSheet]); the JLPT badge only shows for characters
+/// present in the imported kanji decks. Renders nothing for kana-only
+/// words.
 class _KanjiLevelTags extends StatelessWidget {
   const _KanjiLevelTags({required this.word, required this.kanjiLevels});
 
@@ -132,12 +136,10 @@ class _KanjiLevelTags extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tagged = <String, String>{
-      for (final ch in extractKanji(word))
-        if (kanjiLevels[ch] != null) ch: kanjiLevels[ch]!,
-    };
-    if (tagged.isEmpty) return const SizedBox.shrink();
+    final chars = {for (final ch in extractKanji(word)) ch: true}.keys;
+    if (chars.isEmpty) return const SizedBox.shrink();
 
+    final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     return Padding(
       padding: const EdgeInsets.only(top: 8),
@@ -145,18 +147,27 @@ class _KanjiLevelTags extends StatelessWidget {
         spacing: 6,
         runSpacing: 6,
         children: [
-          for (final entry in tagged.entries)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: JlptColors.forLevel(entry.value).withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '${entry.key} ${entry.value}',
-                style: textTheme.labelSmall?.copyWith(
-                  color: JlptColors.forLevel(entry.value),
-                  fontWeight: FontWeight.bold,
+          for (final ch in chars)
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => showKanjiStrokeSheet(context, ch),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: (kanjiLevels[ch] != null
+                          ? JlptColors.forLevel(kanjiLevels[ch])
+                          : colorScheme.onSurface)
+                      .withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  kanjiLevels[ch] != null ? '$ch ${kanjiLevels[ch]}' : ch,
+                  style: textTheme.labelSmall?.copyWith(
+                    color: kanjiLevels[ch] != null
+                        ? JlptColors.forLevel(kanjiLevels[ch])
+                        : colorScheme.onSurface.withValues(alpha: 0.7),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),

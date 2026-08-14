@@ -19,7 +19,10 @@ const _kItems = [
   _NavItemData(Icons.person_rounded, 'Profile'),
 ];
 
-/// Floating pill bottom nav bar — spec section 10.
+/// Bottom nav bar — spec section 10. Sits flush against the screen's
+/// bottom and side edges (no floating margin or pill shape), with its
+/// background extending under the home-indicator safe area so the edge-
+/// to-edge look holds on notched devices.
 class YomuBottomBar extends ConsumerWidget {
   const YomuBottomBar({
     super.key,
@@ -34,73 +37,69 @@ class YomuBottomBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dueCount = ref.watch(dueReviewCountProvider).value ?? 0;
     final colorScheme = Theme.of(context).colorScheme;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
 
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Container(
-          height: 64,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: colorScheme.surfaceContainerHighest, width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.12),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+    return Container(
+      padding: EdgeInsets.only(left: 8, right: 8, bottom: bottomInset),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(top: BorderSide(color: colorScheme.surfaceContainerHighest, width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, -2),
           ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final slotWidth = constraints.maxWidth / _kItems.length;
-              return Stack(
-                alignment: Alignment.centerLeft,
-                children: [
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 350),
-                    curve: Curves.easeOutBack,
-                    left: slotWidth * currentIndex,
-                    top: 8,
-                    width: slotWidth,
-                    height: 48,
-                    child: Center(
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary.withValues(alpha: 0.14),
-                          shape: BoxShape.circle,
-                        ),
+        ],
+      ),
+      child: SizedBox(
+        height: 64,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final slotWidth = constraints.maxWidth / _kItems.length;
+            return Stack(
+              alignment: Alignment.centerLeft,
+              children: [
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 350),
+                  curve: Curves.easeOutBack,
+                  left: slotWidth * currentIndex,
+                  top: 8,
+                  width: slotWidth,
+                  height: 48,
+                  child: Center(
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primary.withValues(alpha: 0.14),
+                        shape: BoxShape.circle,
                       ),
                     ),
                   ),
-                  Row(
-                    children: [
-                      for (var i = 0; i < _kItems.length; i++)
-                        SizedBox(
-                          width: slotWidth,
-                          height: 64,
-                          child: _BottomBarItem(
-                            icon: _kItems[i].icon,
-                            label: _kItems[i].label,
-                            isSelected: i == currentIndex,
-                            badgeCount: i == 1 ? dueCount : null,
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              onSelect(i);
-                            },
-                          ),
+                ),
+                Row(
+                  children: [
+                    for (var i = 0; i < _kItems.length; i++)
+                      SizedBox(
+                        width: slotWidth,
+                        height: 64,
+                        child: _BottomBarItem(
+                          icon: _kItems[i].icon,
+                          label: _kItems[i].label,
+                          isSelected: i == currentIndex,
+                          badgeCount: i == 1 ? dueCount : null,
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            onSelect(i);
+                          },
                         ),
-                    ],
-                  ),
-                ],
-              );
-            },
-          ),
+                      ),
+                  ],
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

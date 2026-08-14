@@ -16,8 +16,4 @@ class UserWordActions extends _$UserWordActions {
   Future<void> markKnown(String dictionaryForm) {
     return ref.read(userWordRepositoryProvider).markKnown(dictionaryForm);
   }
-
-  Future<void> gradeReview(String dictionaryForm, {required bool correct}) {
-    return ref.read(userWordRepositoryProvider).gradeReview(dictionaryForm, correct: correct);
-  }
 }

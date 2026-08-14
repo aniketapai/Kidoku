@@ -164,7 +164,8 @@ class AppDatabase extends _$AppDatabase {
     userWords,
   )..where((t) => t.dictionaryForm.equals(dictionaryForm))).watchSingleOrNull();
 
-  /// Queues a word for SRS review, due immediately.
+  /// Marks a word saved — i.e. not known yet. No SRS scheduling: My Words
+  /// just lists every saved word, split into Saved/Known client-side.
   Future<void> markWordSaved(String dictionaryForm) {
     final now = DateTime.now();
     return into(userWords).insertOnConflictUpdate(
@@ -173,13 +174,11 @@ class AppDatabase extends _$AppDatabase {
         status: WordStatus.saved,
         lastSeen: now,
         savedAt: Value(now),
-        srsDueAt: Value(now),
-        srsInterval: const Value(0),
       ),
     );
   }
 
-  /// Marks a word already known, removing it from the SRS review rotation.
+  /// Marks a word already known.
   Future<void> markWordKnown(String dictionaryForm) {
     final now = DateTime.now();
     return into(userWords).insertOnConflictUpdate(
@@ -188,53 +187,27 @@ class AppDatabase extends _$AppDatabase {
         status: WordStatus.known,
         lastSeen: now,
         savedAt: Value(now),
-        srsDueAt: const Value(null),
-        srsInterval: const Value(0),
       ),
     );
   }
 
-  /// Grades a review: advances (or resets, on failure) the word's position
-  /// in [SrsConfig.intervalsDays] and reschedules its next due date.
-  Future<void> gradeReview(String dictionaryForm, {required bool correct}) async {
-    final row = await (select(
-      userWords,
-    )..where((t) => t.dictionaryForm.equals(dictionaryForm))).getSingleOrNull();
-    final currentIndex = row?.srsInterval ?? -1;
-    final newIndex = correct ? (currentIndex + 1).clamp(0, SrsConfig.intervalsDays.length - 1) : 0;
-    final now = DateTime.now();
-    await into(userWords).insertOnConflictUpdate(
-      UserWordsCompanion.insert(
-        dictionaryForm: dictionaryForm,
-        status: WordStatus.learning,
-        lastSeen: now,
-        savedAt: Value(row?.savedAt ?? now),
-        srsInterval: Value(newIndex),
-        srsDueAt: Value(now.add(Duration(days: SrsConfig.intervalsDays[newIndex]))),
-      ),
-    );
-    await logReviewEvent(correct: correct, at: now);
+  /// Every saved/known word, most recently saved first — backs the My Words
+  /// list (no due-date gating; the UI splits Saved vs. Known client-side).
+  Stream<List<UserWord>> watchAllUserWords() {
+    return (select(userWords)..orderBy([
+          (t) => OrderingTerm.desc(t.savedAt),
+          (t) => OrderingTerm.desc(t.lastSeen),
+        ]))
+        .watch();
   }
 
-  /// Filters/sorts client-side (rather than a SQL WHERE bound to `now`) so
-  /// "due" is evaluated fresh on every emission — a SQL-bound comparison
-  /// captures `now` once when the stream is first built and never updates
-  /// it, so a word saved later in the same session would never re-trigger
-  /// that stale comparison and could never appear as due until the app
-  /// restarted and rebuilt the stream with a newer `now`.
-  Stream<List<UserWord>> watchDueUserWords() {
-    return select(userWords).watch().map((rows) {
-      final now = DateTime.now();
-      final due = rows.where((r) => r.srsDueAt != null && !r.srsDueAt!.isAfter(now)).toList()
-        ..sort((a, b) => a.srsDueAt!.compareTo(b.srsDueAt!));
-      return due;
-    });
-  }
-
+  /// Count of words not yet marked known — backs the bottom-nav Review
+  /// badge. [WordStatus.learning] is a legacy status no longer written (it
+  /// predates My Words dropping SRS grading) but still counts as "not known"
+  /// for any pre-existing rows.
   Stream<int> watchDueReviewCount() {
     return select(userWords).watch().map((rows) {
-      final now = DateTime.now();
-      return rows.where((r) => r.srsDueAt != null && !r.srsDueAt!.isAfter(now)).length;
+      return rows.where((r) => r.status != WordStatus.known).length;
     });
   }
 

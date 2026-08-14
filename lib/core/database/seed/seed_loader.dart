@@ -45,7 +45,20 @@ import '../tables/deck_cards_table.dart';
 /// v9: removed a stray Anki template row ("kanji" / "ja_on / ja_kun" /
 /// "meaning") that had leaked into the N3 kanji deck from
 /// Pass_JLPT_N3_Kanji.apkg.
-const kSeedVersion = 9;
+///
+/// v10: replaced the 30 catch-all "General Vocabulary I"..."General
+/// Vocabulary XXX" N3 vocab categories (477 words dumped into meaningless
+/// numbered buckets) with 34 topic-named categories in the same "Week X.Y
+/// Name" style as the rest of N3/N4/N5, reusing existing N3 topics where the
+/// words fit (extending their roman-numeral suffix) and adding a few new
+/// topics (e.g. People and Occupations, Materials and Elements, Everyday
+/// Objects and Items, Sports and Hobbies) for words that didn't fit any
+/// existing topic. Also renumbered sortOrder for all 1893 N3 vocab entries
+/// so every category — old and new — displays as one contiguous block in a
+/// clean Week 1 → Week 26 sequence instead of the new categories being
+/// interleaved into the old sortOrder gaps. No words, meanings, or other
+/// fields were changed.
+const kSeedVersion = 10;
 
 /// Loads assets/seed/*.json into [AppDatabase] on first launch: real JMdict
 /// dictionary entries and the JLPT Anki decks produced by the ingestion/
