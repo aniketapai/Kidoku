@@ -3362,6 +3362,329 @@ class StoryProgressCompanion extends UpdateCompanion<StoryProgressData> {
   }
 }
 
+class $ReelProgressTable extends ReelProgress
+    with TableInfo<$ReelProgressTable, ReelProgressData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReelProgressTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _reelIdMeta = const VerificationMeta('reelId');
+  @override
+  late final GeneratedColumn<String> reelId = GeneratedColumn<String>(
+    'reel_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastPositionMsMeta = const VerificationMeta(
+    'lastPositionMs',
+  );
+  @override
+  late final GeneratedColumn<int> lastPositionMs = GeneratedColumn<int>(
+    'last_position_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _completedMeta = const VerificationMeta(
+    'completed',
+  );
+  @override
+  late final GeneratedColumn<bool> completed = GeneratedColumn<bool>(
+    'completed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("completed" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    reelId,
+    lastPositionMs,
+    completed,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'reel_progress';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReelProgressData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('reel_id')) {
+      context.handle(
+        _reelIdMeta,
+        reelId.isAcceptableOrUnknown(data['reel_id']!, _reelIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_reelIdMeta);
+    }
+    if (data.containsKey('last_position_ms')) {
+      context.handle(
+        _lastPositionMsMeta,
+        lastPositionMs.isAcceptableOrUnknown(
+          data['last_position_ms']!,
+          _lastPositionMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('completed')) {
+      context.handle(
+        _completedMeta,
+        completed.isAcceptableOrUnknown(data['completed']!, _completedMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {reelId};
+  @override
+  ReelProgressData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReelProgressData(
+      reelId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reel_id'],
+      )!,
+      lastPositionMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_position_ms'],
+      )!,
+      completed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}completed'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ReelProgressTable createAlias(String alias) {
+    return $ReelProgressTable(attachedDatabase, alias);
+  }
+}
+
+class ReelProgressData extends DataClass
+    implements Insertable<ReelProgressData> {
+  final String reelId;
+  final int lastPositionMs;
+  final bool completed;
+  final DateTime updatedAt;
+  const ReelProgressData({
+    required this.reelId,
+    required this.lastPositionMs,
+    required this.completed,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['reel_id'] = Variable<String>(reelId);
+    map['last_position_ms'] = Variable<int>(lastPositionMs);
+    map['completed'] = Variable<bool>(completed);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  ReelProgressCompanion toCompanion(bool nullToAbsent) {
+    return ReelProgressCompanion(
+      reelId: Value(reelId),
+      lastPositionMs: Value(lastPositionMs),
+      completed: Value(completed),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory ReelProgressData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReelProgressData(
+      reelId: serializer.fromJson<String>(json['reelId']),
+      lastPositionMs: serializer.fromJson<int>(json['lastPositionMs']),
+      completed: serializer.fromJson<bool>(json['completed']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'reelId': serializer.toJson<String>(reelId),
+      'lastPositionMs': serializer.toJson<int>(lastPositionMs),
+      'completed': serializer.toJson<bool>(completed),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  ReelProgressData copyWith({
+    String? reelId,
+    int? lastPositionMs,
+    bool? completed,
+    DateTime? updatedAt,
+  }) => ReelProgressData(
+    reelId: reelId ?? this.reelId,
+    lastPositionMs: lastPositionMs ?? this.lastPositionMs,
+    completed: completed ?? this.completed,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  ReelProgressData copyWithCompanion(ReelProgressCompanion data) {
+    return ReelProgressData(
+      reelId: data.reelId.present ? data.reelId.value : this.reelId,
+      lastPositionMs: data.lastPositionMs.present
+          ? data.lastPositionMs.value
+          : this.lastPositionMs,
+      completed: data.completed.present ? data.completed.value : this.completed,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReelProgressData(')
+          ..write('reelId: $reelId, ')
+          ..write('lastPositionMs: $lastPositionMs, ')
+          ..write('completed: $completed, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(reelId, lastPositionMs, completed, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReelProgressData &&
+          other.reelId == this.reelId &&
+          other.lastPositionMs == this.lastPositionMs &&
+          other.completed == this.completed &&
+          other.updatedAt == this.updatedAt);
+}
+
+class ReelProgressCompanion extends UpdateCompanion<ReelProgressData> {
+  final Value<String> reelId;
+  final Value<int> lastPositionMs;
+  final Value<bool> completed;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const ReelProgressCompanion({
+    this.reelId = const Value.absent(),
+    this.lastPositionMs = const Value.absent(),
+    this.completed = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ReelProgressCompanion.insert({
+    required String reelId,
+    this.lastPositionMs = const Value.absent(),
+    this.completed = const Value.absent(),
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : reelId = Value(reelId),
+       updatedAt = Value(updatedAt);
+  static Insertable<ReelProgressData> custom({
+    Expression<String>? reelId,
+    Expression<int>? lastPositionMs,
+    Expression<bool>? completed,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (reelId != null) 'reel_id': reelId,
+      if (lastPositionMs != null) 'last_position_ms': lastPositionMs,
+      if (completed != null) 'completed': completed,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ReelProgressCompanion copyWith({
+    Value<String>? reelId,
+    Value<int>? lastPositionMs,
+    Value<bool>? completed,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return ReelProgressCompanion(
+      reelId: reelId ?? this.reelId,
+      lastPositionMs: lastPositionMs ?? this.lastPositionMs,
+      completed: completed ?? this.completed,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (reelId.present) {
+      map['reel_id'] = Variable<String>(reelId.value);
+    }
+    if (lastPositionMs.present) {
+      map['last_position_ms'] = Variable<int>(lastPositionMs.value);
+    }
+    if (completed.present) {
+      map['completed'] = Variable<bool>(completed.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReelProgressCompanion(')
+          ..write('reelId: $reelId, ')
+          ..write('lastPositionMs: $lastPositionMs, ')
+          ..write('completed: $completed, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3377,6 +3700,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AchievementsTable achievements = $AchievementsTable(this);
   late final $UserSettingsTable userSettings = $UserSettingsTable(this);
   late final $StoryProgressTable storyProgress = $StoryProgressTable(this);
+  late final $ReelProgressTable reelProgress = $ReelProgressTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3391,6 +3715,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     achievements,
     userSettings,
     storyProgress,
+    reelProgress,
   ];
 }
 
@@ -5204,6 +5529,189 @@ typedef $$StoryProgressTableProcessedTableManager =
       StoryProgressData,
       PrefetchHooks Function()
     >;
+typedef $$ReelProgressTableCreateCompanionBuilder =
+    ReelProgressCompanion Function({
+      required String reelId,
+      Value<int> lastPositionMs,
+      Value<bool> completed,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$ReelProgressTableUpdateCompanionBuilder =
+    ReelProgressCompanion Function({
+      Value<String> reelId,
+      Value<int> lastPositionMs,
+      Value<bool> completed,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$ReelProgressTableFilterComposer
+    extends Composer<_$AppDatabase, $ReelProgressTable> {
+  $$ReelProgressTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get reelId => $composableBuilder(
+    column: $table.reelId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastPositionMs => $composableBuilder(
+    column: $table.lastPositionMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get completed => $composableBuilder(
+    column: $table.completed,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ReelProgressTableOrderingComposer
+    extends Composer<_$AppDatabase, $ReelProgressTable> {
+  $$ReelProgressTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get reelId => $composableBuilder(
+    column: $table.reelId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastPositionMs => $composableBuilder(
+    column: $table.lastPositionMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get completed => $composableBuilder(
+    column: $table.completed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ReelProgressTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ReelProgressTable> {
+  $$ReelProgressTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get reelId =>
+      $composableBuilder(column: $table.reelId, builder: (column) => column);
+
+  GeneratedColumn<int> get lastPositionMs => $composableBuilder(
+    column: $table.lastPositionMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get completed =>
+      $composableBuilder(column: $table.completed, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$ReelProgressTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ReelProgressTable,
+          ReelProgressData,
+          $$ReelProgressTableFilterComposer,
+          $$ReelProgressTableOrderingComposer,
+          $$ReelProgressTableAnnotationComposer,
+          $$ReelProgressTableCreateCompanionBuilder,
+          $$ReelProgressTableUpdateCompanionBuilder,
+          (
+            ReelProgressData,
+            BaseReferences<_$AppDatabase, $ReelProgressTable, ReelProgressData>,
+          ),
+          ReelProgressData,
+          PrefetchHooks Function()
+        > {
+  $$ReelProgressTableTableManager(_$AppDatabase db, $ReelProgressTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ReelProgressTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ReelProgressTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ReelProgressTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> reelId = const Value.absent(),
+                Value<int> lastPositionMs = const Value.absent(),
+                Value<bool> completed = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ReelProgressCompanion(
+                reelId: reelId,
+                lastPositionMs: lastPositionMs,
+                completed: completed,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String reelId,
+                Value<int> lastPositionMs = const Value.absent(),
+                Value<bool> completed = const Value.absent(),
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => ReelProgressCompanion.insert(
+                reelId: reelId,
+                lastPositionMs: lastPositionMs,
+                completed: completed,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ReelProgressTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ReelProgressTable,
+      ReelProgressData,
+      $$ReelProgressTableFilterComposer,
+      $$ReelProgressTableOrderingComposer,
+      $$ReelProgressTableAnnotationComposer,
+      $$ReelProgressTableCreateCompanionBuilder,
+      $$ReelProgressTableUpdateCompanionBuilder,
+      (
+        ReelProgressData,
+        BaseReferences<_$AppDatabase, $ReelProgressTable, ReelProgressData>,
+      ),
+      ReelProgressData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5226,4 +5734,6 @@ class $AppDatabaseManager {
       $$UserSettingsTableTableManager(_db, _db.userSettings);
   $$StoryProgressTableTableManager get storyProgress =>
       $$StoryProgressTableTableManager(_db, _db.storyProgress);
+  $$ReelProgressTableTableManager get reelProgress =>
+      $$ReelProgressTableTableManager(_db, _db.reelProgress);
 }

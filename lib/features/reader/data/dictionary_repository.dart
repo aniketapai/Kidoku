@@ -13,6 +13,9 @@ class DictionaryRepository {
   Future<DictionaryEntry?> lookup(String dictionaryForm) =>
       _db.lookupDictionaryEntry(dictionaryForm);
 
+  Future<Map<String, DictionaryEntry>> lookupMany(List<String> dictionaryForms) =>
+      _db.lookupDictionaryEntries(dictionaryForms);
+
   /// Searches by the raw query (Japanese form/reading prefix, or English
   /// meaning) and, when the query looks like romaji (e.g. "taberu"), also
   /// by its hiragana conversion — otherwise typing romaji never matches the

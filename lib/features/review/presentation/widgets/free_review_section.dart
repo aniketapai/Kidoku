@@ -55,7 +55,7 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
   int _uniqueCount = 0;
   int _totalEver = 0;
   int _gradedCount = 0;
-  bool _isFlipped = false;
+  int _stage = 0;
 
   List<DeckCard> _vocabEligible(List<VocabWeekGroup> weekGroups) {
     final cards = <DeckCard>[];
@@ -82,14 +82,14 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
       _uniqueCount = selected.length;
       _totalEver = selected.length;
       _gradedCount = 0;
-      _isFlipped = false;
+      _stage = 0;
     });
   }
 
   void _endSession() {
     setState(() {
       _queue = null;
-      _isFlipped = false;
+      _stage = 0;
     });
   }
 
@@ -104,7 +104,7 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
         queue.insert(min(offset, queue.length), card);
         _totalEver++;
       }
-      _isFlipped = false;
+      _stage = 0;
     });
   }
 
@@ -384,6 +384,8 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
     }
 
     final card = queue.first;
+    final reviewCard = DeckReviewCard(card: card, direction: _direction);
+    final maxStage = DeckFlashCard.maxStage(reviewCard);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 110),
@@ -405,16 +407,15 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
           Expanded(
             child: Center(
               child: GestureDetector(
-                onTap: () => setState(() => _isFlipped = !_isFlipped),
-                child: DeckFlashCard(
-                  reviewCard: DeckReviewCard(card: card, direction: _direction),
-                  isFlipped: _isFlipped,
-                ),
+                onTap: () {
+                  if (_stage < maxStage) setState(() => _stage++);
+                },
+                child: DeckFlashCard(reviewCard: reviewCard, revealStage: _stage),
               ),
             ),
           ),
           const SizedBox(height: 20),
-          if (_isFlipped)
+          if (_stage >= maxStage)
             Row(
               children: [
                 Expanded(

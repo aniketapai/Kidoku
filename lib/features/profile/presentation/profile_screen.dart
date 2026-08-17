@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/database/tables/user_words_table.dart';
+import '../../../core/router/app_routes.dart';
 import '../application/word_status_provider.dart';
 import '../data/activity_repository.dart';
 import 'widgets/achievements_section.dart';
 import 'widgets/activity_graph.dart';
 import 'widgets/activity_heatmap.dart';
+import 'widgets/profile_drawer.dart';
 import 'widgets/profile_header_card.dart';
 import 'widgets/profile_section_card.dart';
 import 'widgets/stat_tile.dart';
@@ -23,36 +26,81 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(authStateProvider);
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
 
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 24, 16, 110),
-        children: [
-          userAsync.when(
-            data: (user) => user == null
-                ? const SizedBox.shrink()
-                : ProfileHeaderCard(user: user),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, stackTrace) => const SizedBox.shrink(),
-          ),
-          const SizedBox(height: 20),
-          const _StatsSection(),
-          const SizedBox(height: 16),
-          const StoryProgressSection(),
-          const SizedBox(height: 16),
-          const _ActivitySection(),
-          const SizedBox(height: 16),
-          const AchievementsSection(),
-          const SizedBox(height: 32),
-          Text(
-            'Dictionary data from JMdict/EDICT (Electronic Dictionary '
-            'Research and Development Group), used under CC BY-SA 4.0.',
-            textAlign: TextAlign.center,
-            style: textTheme.labelSmall
-                ?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.4)),
-          ),
-        ],
+    return Scaffold(
+      backgroundColor: colorScheme.surface,
+      drawer: const ProfileDrawer(),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _MenuButton(colorScheme: colorScheme),
+                _SettingsButton(colorScheme: colorScheme),
+              ],
+            ),
+            const SizedBox(height: 16),
+            userAsync.when(
+              data: (user) =>
+                  user == null ? const SizedBox.shrink() : ProfileHeaderCard(user: user),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stackTrace) => const SizedBox.shrink(),
+            ),
+            const SizedBox(height: 20),
+            const _StatsSection(),
+            const SizedBox(height: 16),
+            const StoryProgressSection(),
+            const SizedBox(height: 16),
+            const _ActivitySection(),
+            const SizedBox(height: 16),
+            const AchievementsSection(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens [ProfileDrawer] — home for Dictionary/Vocabulary now that they're
+/// off the bottom nav. Builder-scoped so `Scaffold.of(context)` finds the
+/// Scaffold this button's own drawer belongs to, not an ancestor's.
+class _MenuButton extends StatelessWidget {
+  const _MenuButton({required this.colorScheme});
+
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: colorScheme.surface,
+      elevation: 2,
+      shape: const CircleBorder(),
+      child: IconButton(
+        icon: Icon(Icons.menu_rounded, color: colorScheme.onSurface),
+        onPressed: () => Scaffold.of(context).openDrawer(),
+      ),
+    );
+  }
+}
+
+/// Mirrors [_MenuButton] on the opposite side — opens the account Settings
+/// screen (sign out lives there, not on this read-only stats page).
+class _SettingsButton extends StatelessWidget {
+  const _SettingsButton({required this.colorScheme});
+
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: colorScheme.surface,
+      elevation: 2,
+      shape: const CircleBorder(),
+      child: IconButton(
+        icon: Icon(Icons.settings_rounded, color: colorScheme.onSurface),
+        onPressed: () => context.push(AppRoutes.settings),
       ),
     );
   }

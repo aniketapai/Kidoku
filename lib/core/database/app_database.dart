@@ -6,6 +6,7 @@ import 'tables/achievements_table.dart';
 import 'tables/deck_card_progress_table.dart';
 import 'tables/deck_cards_table.dart';
 import 'tables/dictionary_entries_table.dart';
+import 'tables/reel_progress_table.dart';
 import 'tables/review_events_table.dart';
 import 'tables/seed_meta_table.dart';
 import 'tables/story_progress_table.dart';
@@ -25,6 +26,7 @@ part 'app_database.g.dart';
     Achievements,
     UserSettings,
     StoryProgress,
+    ReelProgress,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -32,7 +34,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -57,6 +59,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 8) {
         await m.addColumn(userSettings, userSettings.readerFontScale);
+      }
+      if (from < 9) {
+        await m.createTable(reelProgress);
       }
     },
   );
@@ -115,6 +120,20 @@ class AppDatabase extends _$AppDatabase {
   Future<DictionaryEntry?> lookupDictionaryEntry(String dictionaryForm) => (select(
     dictionaryEntries,
   )..where((t) => t.dictionaryForm.equals(dictionaryForm))).getSingleOrNull();
+
+  /// Batched form of [lookupDictionaryEntry] — one `WHERE ... IN (...)`
+  /// query instead of one query per word, for screens (My Words) that
+  /// render a whole saved-word list at once.
+  Future<Map<String, DictionaryEntry>> lookupDictionaryEntries(
+    List<String> dictionaryForms,
+  ) async {
+    if (dictionaryForms.isEmpty) return const {};
+    final rows =
+        await (select(dictionaryEntries)
+              ..where((t) => t.dictionaryForm.isIn(dictionaryForms)))
+            .get();
+    return {for (final row in rows) row.dictionaryForm: row};
+  }
 
   /// Prefix match on the Japanese form/reading (what a learner typing
   /// kana/kanji — or romaji converted to kana — expects), most specific
@@ -254,24 +273,27 @@ class AppDatabase extends _$AppDatabase {
     ReviewDirection direction, {
     required bool correct,
   }) async {
-    final row =
-        await (select(deckCardProgress)
-              ..where((t) => t.cardId.equals(cardId) & t.direction.equals(direction.name)))
-            .getSingleOrNull();
-    final currentIndex = row?.intervalIndex ?? -1;
-    final newIndex = correct ? (currentIndex + 1).clamp(0, SrsConfig.intervalsDays.length - 1) : 0;
-    final now = DateTime.now();
-    await into(deckCardProgress).insertOnConflictUpdate(
-      DeckCardProgressCompanion.insert(
-        cardId: cardId,
-        direction: direction,
-        introducedAt: Value(row?.introducedAt ?? now),
-        intervalIndex: Value(newIndex),
-        dueAt: Value(now.add(Duration(days: SrsConfig.intervalsDays[newIndex]))),
-        lastReviewed: Value(now),
-      ),
-    );
-    await logReviewEvent(correct: correct, at: now);
+    await transaction(() async {
+      final row =
+          await (select(deckCardProgress)
+                ..where((t) => t.cardId.equals(cardId) & t.direction.equals(direction.name)))
+              .getSingleOrNull();
+      final currentIndex = row?.intervalIndex ?? -1;
+      final newIndex =
+          correct ? (currentIndex + 1).clamp(0, SrsConfig.intervalsDays.length - 1) : 0;
+      final now = DateTime.now();
+      await into(deckCardProgress).insertOnConflictUpdate(
+        DeckCardProgressCompanion.insert(
+          cardId: cardId,
+          direction: direction,
+          introducedAt: Value(row?.introducedAt ?? now),
+          intervalIndex: Value(newIndex),
+          dueAt: Value(now.add(Duration(days: SrsConfig.intervalsDays[newIndex]))),
+          lastReviewed: Value(now),
+        ),
+      );
+      await logReviewEvent(correct: correct, at: now);
+    });
   }
 
   // --- Review activity log (profile heatmap/graph) ---
@@ -346,4 +368,81 @@ class AppDatabase extends _$AppDatabase {
       ),
     );
   }
+
+  // --- Reel watch progress (Reels vertical feed) ---
+
+  Stream<ReelProgressData?> watchReelProgress(String reelId) => (select(
+    reelProgress,
+  )..where((t) => t.reelId.equals(reelId))).watchSingleOrNull();
+
+  /// One shared live query for every reel's progress, mirroring
+  /// [watchAllStoryProgress].
+  Stream<Map<String, ReelProgressData>> watchAllReelProgress() => select(
+    reelProgress,
+  ).watch().map((rows) => {for (final row in rows) row.reelId: row});
+
+  Future<void> saveReelProgress(
+    String reelId, {
+    required int lastPositionMs,
+    required bool completed,
+  }) {
+    return into(reelProgress).insertOnConflictUpdate(
+      ReelProgressCompanion.insert(
+        reelId: reelId,
+        lastPositionMs: Value(lastPositionMs),
+        completed: Value(completed),
+        updatedAt: DateTime.now(),
+      ),
+    );
+  }
+
+  /// Wipes every locally-stored per-user table, leaving the shared seed
+  /// content (dictionary entries, seed metadata, deck cards) untouched.
+  /// Called on account deletion so a subsequent sign-in on this device
+  /// doesn't inherit the deleted account's progress.
+  Future<void> clearUserData() {
+    return transaction(() async {
+      await delete(userWords).go();
+      await delete(deckCardProgress).go();
+      await delete(reviewEvents).go();
+      await delete(achievements).go();
+      await delete(userSettings).go();
+      await delete(storyProgress).go();
+      await delete(reelProgress).go();
+    });
+  }
+
+  // --- Cloud backup (BackupRepository) ---
+
+  /// True if this device has any locally-stored review/progress history —
+  /// the signal the sign-in screen uses to decide whether this looks like a
+  /// fresh device worth offering a cloud-backup restore for. Deliberately
+  /// excludes [UserWords], which is already pulled from Firestore on every
+  /// sign-in regardless (see UserWordRepository.pullFromRemote).
+  Future<bool> hasAnyLocalProgress() async {
+    final counts = await Future.wait([
+      (select(deckCardProgress)..limit(1)).get(),
+      (select(reviewEvents)..limit(1)).get(),
+      (select(achievements)..limit(1)).get(),
+      (select(storyProgress)..limit(1)).get(),
+      (select(reelProgress)..limit(1)).get(),
+    ]);
+    return counts.any((rows) => rows.isNotEmpty);
+  }
+
+  Future<List<UserWord>> getAllUserWords() => select(userWords).get();
+
+  Future<List<DeckCardProgressData>> getAllDeckCardProgress() =>
+      select(deckCardProgress).get();
+
+  Future<List<ReviewEvent>> getAllReviewEvents() => select(reviewEvents).get();
+
+  Future<List<Achievement>> getAllAchievements() => select(achievements).get();
+
+  Future<UserSetting?> getUserSettingsRow() =>
+      (select(userSettings)..where((t) => t.id.equals(0))).getSingleOrNull();
+
+  Future<List<StoryProgressData>> getAllStoryProgress() => select(storyProgress).get();
+
+  Future<List<ReelProgressData>> getAllReelProgress() => select(reelProgress).get();
 }

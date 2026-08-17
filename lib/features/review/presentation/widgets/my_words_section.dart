@@ -33,7 +33,7 @@ class _MyWordsSectionState extends ConsumerState<MyWordsSection> {
   int _uniqueCount = 0;
   int _totalEver = 0;
   int _gradedCount = 0;
-  bool _isFlipped = false;
+  int _stage = 0;
 
   void _startReview(List<MyWordEntry> saved) {
     if (saved.isEmpty) return;
@@ -43,14 +43,14 @@ class _MyWordsSectionState extends ConsumerState<MyWordsSection> {
       _uniqueCount = shuffled.length;
       _totalEver = shuffled.length;
       _gradedCount = 0;
-      _isFlipped = false;
+      _stage = 0;
     });
   }
 
   void _endReview() {
     setState(() {
       _reviewQueue = null;
-      _isFlipped = false;
+      _stage = 0;
     });
   }
 
@@ -68,7 +68,7 @@ class _MyWordsSectionState extends ConsumerState<MyWordsSection> {
         queue.insert(min(offset, queue.length), card);
         _totalEver++;
       }
-      _isFlipped = false;
+      _stage = 0;
     });
   }
 
@@ -151,6 +151,7 @@ class _MyWordsSectionState extends ConsumerState<MyWordsSection> {
     }
 
     final card = queue.first;
+    final maxStage = _ReviewFlashCard.maxStage(card);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 110),
@@ -172,13 +173,15 @@ class _MyWordsSectionState extends ConsumerState<MyWordsSection> {
           Expanded(
             child: Center(
               child: GestureDetector(
-                onTap: () => setState(() => _isFlipped = !_isFlipped),
-                child: _ReviewFlashCard(entry: card, isFlipped: _isFlipped),
+                onTap: () {
+                  if (_stage < maxStage) setState(() => _stage++);
+                },
+                child: _ReviewFlashCard(entry: card, revealStage: _stage),
               ),
             ),
           ),
           const SizedBox(height: 20),
-          if (_isFlipped)
+          if (_stage >= maxStage)
             Row(
               children: [
                 Expanded(
@@ -352,17 +355,28 @@ class _WordTile extends StatelessWidget {
   }
 }
 
+/// Progressive reveal: kanji/expression first, then (on tap) the kana
+/// reading, then (on tap) the English meaning — mirrors [DeckFlashCard]'s
+/// JP → EN order, since My Words review is always word → meaning recall.
 class _ReviewFlashCard extends StatelessWidget {
-  const _ReviewFlashCard({required this.entry, required this.isFlipped});
+  const _ReviewFlashCard({required this.entry, required this.revealStage});
 
   final MyWordEntry entry;
-  final bool isFlipped;
+  final int revealStage;
+
+  static int maxStage(MyWordEntry entry) =>
+      (entry.entry?.reading.isNotEmpty ?? false) ? 2 : 1;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final dictEntry = entry.entry;
+    final hasKana = dictEntry?.reading.isNotEmpty ?? false;
+    final kanaStage = hasKana ? 1 : 0;
+    final finalStage = maxStage(entry);
+    final showKana = hasKana && revealStage >= kanaStage;
+    final showFinal = revealStage >= finalStage;
 
     return Container(
       width: double.infinity,
@@ -378,14 +392,19 @@ class _ReviewFlashCard extends StatelessWidget {
         children: [
           if (dictEntry != null) JlptLevelChip(level: dictEntry.jlptLevel),
           const SizedBox(height: 12),
-          Text(
-            dictEntry?.reading ?? '',
-            style: textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurface.withValues(alpha: 0.6),
+          Text(entry.userWord.dictionaryForm,
+              style: textTheme.headlineMedium, textAlign: TextAlign.center),
+          if (showKana) ...[
+            const SizedBox(height: 12),
+            Text(
+              dictEntry!.reading,
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+              textAlign: TextAlign.center,
             ),
-          ),
-          Text(entry.userWord.dictionaryForm, style: textTheme.headlineMedium),
-          if (isFlipped) ...[
+          ],
+          if (showFinal) ...[
             const SizedBox(height: 20),
             Divider(color: colorScheme.surfaceContainerHighest),
             const SizedBox(height: 12),

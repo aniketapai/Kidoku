@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/auth/auth_repository.dart';
@@ -31,19 +32,31 @@ class UserWordRepository {
     await _push(dictionaryForm);
   }
 
+  /// Best-effort remote sync: the Drift write above is the source of truth
+  /// for the UI (it already committed by the time this runs), so a Firestore
+  /// failure here — offline, rules rejection, quota — must not surface as an
+  /// error on what the user correctly sees as a successful save/mark-known.
+  /// It's swallowed rather than rethrown so callers (which mostly fire this
+  /// off without awaiting) don't produce an unhandled Future rejection; the
+  /// device falls behind remote until the next successful push for this
+  /// word, or a fresh [pullFromRemote] on another device overwrites it.
   Future<void> _push(String dictionaryForm) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
-    final row = await (_db.select(_db.userWords)
-          ..where((t) => t.dictionaryForm.equals(dictionaryForm)))
-        .getSingleOrNull();
-    if (row == null) return;
+    try {
+      final row = await (_db.select(_db.userWords)
+            ..where((t) => t.dictionaryForm.equals(dictionaryForm)))
+          .getSingleOrNull();
+      if (row == null) return;
 
-    await _firestore.collection('users').doc(uid).collection('words').doc(dictionaryForm).set({
-      'status': row.status.name,
-      'savedAt': row.savedAt?.toIso8601String(),
-      'lastSeen': row.lastSeen.toIso8601String(),
-    });
+      await _firestore.collection('users').doc(uid).collection('words').doc(dictionaryForm).set({
+        'status': row.status.name,
+        'savedAt': row.savedAt?.toIso8601String(),
+        'lastSeen': row.lastSeen.toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint('UserWordRepository._push($dictionaryForm) failed: $e');
+    }
   }
 
   /// Pulls the signed-in user's remote words into the local Drift cache.
@@ -69,6 +82,22 @@ class UserWordRepository {
             ),
           );
     }
+  }
+
+  /// Deletes the signed-in user's entire remote word collection. Called
+  /// right before account deletion — unlike [_push], failures here must
+  /// surface so the caller doesn't delete the Firebase account while
+  /// orphaned data remains in Firestore.
+  Future<void> deleteAllRemoteWords() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+    final wordsRef = _firestore.collection('users').doc(uid).collection('words');
+    final snapshot = await wordsRef.get();
+    final batch = _firestore.batch();
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
   }
 }
 

@@ -29,10 +29,19 @@ def katakana_to_hiragana(text: str) -> str:
 def split_sentences(text: str) -> list[str]:
     """Splits `text` into sentences on 。！？, keeping the punctuation attached
     to the preceding sentence, and treating blank lines as boundaries too.
+
+    Full-width ideographic spaces (\\u3000) are stripped out entirely first:
+    some creators' captions use one as an informal mid-line pause between
+    two sentences (e.g. "おはようございます！\\u3000Kenです！" as one caption
+    cue), which sits in the *middle* of the joined line rather than at an
+    edge `.strip()` would catch, and janome silently drops it as whitespace
+    anyway — so a leftover copy would just end up as a stray leading
+    character on the next sentence and desync the char-count the aligner
+    checks against.
     """
     sentences: list[str] = []
     for paragraph in text.split("\n"):
-        paragraph = paragraph.strip()
+        paragraph = paragraph.replace("　", "").strip()
         if not paragraph:
             continue
         parts = _SENTENCE_BOUNDARY.split(paragraph)

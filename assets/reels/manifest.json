@@ -1,0 +1,90 @@
+[
+  {
+    "id": "n5-reel-01-kasa-wo-wasuremashita",
+    "videoId": "i2UEIUI3XRI",
+    "levels": [
+      "N5",
+      "N4"
+    ],
+    "title": "かさをわすれました",
+    "titleEn": "I Forgot My Umbrella",
+    "file": "n5/n5-reel-01-kasa-wo-wasuremashita.json",
+    "durationMs": 672000,
+    "creator": "WAKU WAKU JAPANESE"
+  },
+  {
+    "id": "n5-reel-03-eigakan-de",
+    "videoId": "09LoUkzwBxU",
+    "levels": [
+      "N5",
+      "N4"
+    ],
+    "title": "映画館で",
+    "titleEn": "At the Movie Theater",
+    "file": "n5/n5-reel-03-eigakan-de.json",
+    "durationMs": 319000,
+    "creator": "WAKU WAKU JAPANESE"
+  },
+  {
+    "id": "n5-reel-02-mini-drama-part1",
+    "videoId": "IYrCAADD0Kg",
+    "levels": [
+      "N5",
+      "N4"
+    ],
+    "title": "日本語ミニドラマ 前編",
+    "titleEn": "Learn Japanese with Short Dramas (Part 1)",
+    "file": "n5/n5-reel-02-mini-drama-part1.json",
+    "durationMs": 874000,
+    "creator": "WAKU WAKU JAPANESE"
+  },
+  {
+    "id": "n5-reel-04-daigakusei-no-ichinichi",
+    "videoId": "qGeALpYfiRo",
+    "levels": [
+      "N5",
+      "N4"
+    ],
+    "title": "日本の大学生の一日",
+    "titleEn": "A Day of a Japanese University Student",
+    "file": "n5/n5-reel-04-daigakusei-no-ichinichi.json",
+    "durationMs": 1269000,
+    "creator": "Learn Easy Japanese with Kaneko"
+  },
+  {
+    "id": "n3-reel-01-ryuugaku-nayami",
+    "videoId": "kIDaXEnkjmk",
+    "levels": [
+      "N3"
+    ],
+    "title": "留学するか悩んでいる人に伝えたいこと",
+    "titleEn": "What I Want to Tell Anyone Considering Studying Abroad",
+    "file": "n3/n3-reel-01-ryuugaku-nayami.json",
+    "durationMs": 1050000,
+    "creator": "あかね的日本語教室"
+  },
+  {
+    "id": "n4-reel-01-haru-wo-sagashi-ni",
+    "videoId": "UhS-tSa96bc",
+    "levels": [
+      "N4"
+    ],
+    "title": "春を探しに行こう",
+    "titleEn": "Let's Go Find Spring",
+    "file": "n4/n4-reel-01-haru-wo-sagashi-ni.json",
+    "durationMs": 1542000,
+    "creator": "けんさんおかえり Japanese"
+  },
+  {
+    "id": "n4-reel-02-okinawa-asa-sanpo",
+    "videoId": "yLtdfXL3Sjs",
+    "levels": [
+      "N4"
+    ],
+    "title": "沖縄の朝散歩",
+    "titleEn": "Morning Walk in Okinawa",
+    "file": "n4/n4-reel-02-okinawa-asa-sanpo.json",
+    "durationMs": 1000000,
+    "creator": "けんさんおかえり Japanese"
+  }
+]

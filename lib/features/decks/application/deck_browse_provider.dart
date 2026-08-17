@@ -7,7 +7,7 @@ import '../../../core/text/romaji_converter.dart';
 import 'deck_data_providers.dart';
 
 class DeckBrowseFilterState {
-  const DeckBrowseFilterState({this.searchText = '', this.level = 'All'});
+  const DeckBrowseFilterState({this.searchText = '', this.level = 'N5'});
 
   final String searchText;
   final String level;

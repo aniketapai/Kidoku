@@ -26,6 +26,10 @@
 		<string>$(FLUTTER_BUILD_NUMBER)</string>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
+		<key>NSCameraUsageDescription</key>
+		<string>Kidoku needs camera access so you can photograph Japanese text to translate it.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Kidoku needs photo access so you can attach a certificate photo to a JLPT achievement, or pick a photo to translate.</string>
 		<key>UIApplicationSceneManifest</key>
 		<dict>
 			<key>UIApplicationSupportsMultipleScenes</key>

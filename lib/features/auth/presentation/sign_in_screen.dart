@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../core/auth/auth_repository.dart';
+import '../../../core/database/providers.dart';
+import '../../../core/utils/date_format.dart';
+import '../../backup/data/backup_repository.dart';
 import '../../reader/data/user_word_repository.dart';
 
 /// The only screen reachable without a signed-in account — the router
@@ -29,16 +32,71 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     try {
       await ref.read(authRepositoryProvider).signInWithGoogle();
       await ref.read(userWordRepositoryProvider).pullFromRemote();
+      await _maybeOfferRestore();
     } on GoogleSignInException catch (e) {
-      if (e.code != GoogleSignInExceptionCode.canceled) {
+      if (e.code != GoogleSignInExceptionCode.canceled && mounted) {
         setState(() => _error = _friendlyGoogleError(e.code));
       }
     } on FirebaseAuthException {
-      setState(() => _error = "Couldn't sign in with that account. Please try again.");
+      if (mounted) {
+        setState(() => _error = "Couldn't sign in with that account. Please try again.");
+      }
     } catch (_) {
-      setState(() => _error = "Couldn't sign in — check your connection and try again.");
+      // Covers pullFromRemote() failing after a successful sign-in (e.g. a
+      // flaky connection) — by then the router may already have popped this
+      // screen in response to the auth-state change, so guard with mounted.
+      if (mounted) {
+        setState(() => _error = "Couldn't sign in — check your connection and try again.");
+      }
     } finally {
       if (mounted) setState(() => _signingIn = false);
+    }
+  }
+
+  /// Offers to restore a cloud backup only when this looks like a fresh
+  /// device: no local review/progress history (a same-device sign-out ->
+  /// sign-in keeps that data, so it never triggers this) but a backup
+  /// exists in the cloud from some other device. Failures here are
+  /// swallowed — a missed restore prompt shouldn't block sign-in itself,
+  /// the user can still restore later... actually there's no "later" UI, so
+  /// this is best-effort but silent: worst case the user just doesn't get
+  /// asked and keeps a blank slate, same as before this feature existed.
+  Future<void> _maybeOfferRestore() async {
+    try {
+      final hasLocalProgress = await ref.read(appDatabaseProvider).hasAnyLocalProgress();
+      if (hasLocalProgress || !mounted) return;
+
+      final backupRepository = ref.read(backupRepositoryProvider);
+      final lastBackupAt = await backupRepository.lastBackupAt();
+      if (lastBackupAt == null || !mounted) return;
+
+      final shouldRestore = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          title: const Text('Restore your backup?'),
+          content: Text(
+            'This device has no saved progress. You backed up your data on '
+            '${formatDateTime(lastBackupAt)} — restore it now?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Skip'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Restore'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldRestore == true) {
+        await backupRepository.restoreBackup();
+      }
+    } catch (_) {
+      // See doc comment above — silently give up and leave the device as-is.
     }
   }
 

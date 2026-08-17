@@ -69,9 +69,12 @@ class _StoryList extends ConsumerWidget {
         final progress = progressAsync.value ?? const {};
 
         return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 110),
           itemCount: stories.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          separatorBuilder: (_, _) => Padding(
+            padding: const EdgeInsets.only(left: 54),
+            child: Divider(height: 1, color: colorScheme.surfaceContainerHighest),
+          ),
           itemBuilder: (context, index) {
             final meta = stories[index];
             return StoryCard(

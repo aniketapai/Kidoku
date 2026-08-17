@@ -33,6 +33,34 @@ class AuthRepository {
     final credential = GoogleAuthProvider.credential(idToken: idToken);
     await _auth.signInWithCredential(credential);
   }
+
+  Future<void> signOut() async {
+    await _ensureGoogleInitialized();
+    await GoogleSignIn.instance.signOut();
+    await _auth.signOut();
+  }
+
+  /// Firebase requires a recent sign-in before it will allow account
+  /// deletion — call this immediately before [deleteAccount], with no other
+  /// awaits in between, so the credential doesn't go stale.
+  Future<void> reauthenticateWithGoogle() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    await _ensureGoogleInitialized();
+    final googleAccount = await GoogleSignIn.instance.authenticate();
+    final idToken = googleAccount.authentication.idToken;
+    final credential = GoogleAuthProvider.credential(idToken: idToken);
+    await user.reauthenticateWithCredential(credential);
+  }
+
+  /// Permanently deletes the Firebase Auth account. Callers must wipe the
+  /// user's Firestore and local data first (see [UserWordRepository]'s
+  /// `deleteAllRemoteWords` and [AppDatabase]'s `clearUserData`) since both
+  /// are keyed off the uid this call invalidates.
+  Future<void> deleteAccount() async {
+    await _auth.currentUser?.delete();
+    await GoogleSignIn.instance.signOut();
+  }
 }
 
 @Riverpod(keepAlive: true)

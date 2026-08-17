@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "yomu",
+      "request": "launch",
+      "type": "dart",
+      "args": ["--dart-define-from-file", "secrets.json"]
+    },
+    {
+      "name": "yomu (profile mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile",
+      "args": ["--dart-define-from-file", "secrets.json"]
+    },
+    {
+      "name": "yomu (release mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "args": ["--dart-define-from-file", "secrets.json"]
+    }
+  ]
+}

@@ -22,14 +22,14 @@ class ReviewScreen extends ConsumerStatefulWidget {
 class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   _ReviewMode _mode = _ReviewMode.myWords;
 
-  bool _isDeckFlipped = false;
+  int _deckStage = 0;
   String? _currentDeckCardKey;
 
   void _gradeDeck(DeckReviewCard card, {required bool correct}) {
     ref
         .read(deckReviewActionsProvider.notifier)
         .gradeReview(card.card.id, card.direction, correct: correct);
-    setState(() => _isDeckFlipped = false);
+    setState(() => _deckStage = 0);
   }
 
   Future<void> _showNewCardsPerDayDialog(BuildContext context, int current) async {
@@ -184,8 +184,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                       final key = '${card.card.id}|${card.direction.name}';
                       if (_currentDeckCardKey != key) {
                         _currentDeckCardKey = key;
-                        _isDeckFlipped = false;
+                        _deckStage = 0;
                       }
+                      final maxStage = DeckFlashCard.maxStage(card);
 
                       return Column(
                         children: [
@@ -199,13 +200,15 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                           Expanded(
                             child: Center(
                               child: GestureDetector(
-                                onTap: () => setState(() => _isDeckFlipped = !_isDeckFlipped),
-                                child: DeckFlashCard(reviewCard: card, isFlipped: _isDeckFlipped),
+                                onTap: () {
+                                  if (_deckStage < maxStage) setState(() => _deckStage++);
+                                },
+                                child: DeckFlashCard(reviewCard: card, revealStage: _deckStage),
                               ),
                             ),
                           ),
                           const SizedBox(height: 20),
-                          if (_isDeckFlipped)
+                          if (_deckStage >= maxStage)
                             Row(
                               children: [
                                 Expanded(

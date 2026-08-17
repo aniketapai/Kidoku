@@ -5,6 +5,7 @@ import '../../../core/database/app_database.dart';
 import '../../../core/database/tables/deck_cards_table.dart';
 import '../../../core/widgets/clearable_search_field.dart';
 import '../../decks/application/deck_browse_provider.dart';
+import '../../decks/application/deck_data_providers.dart';
 import 'widgets/deck_card_tile.dart';
 
 const _kLevels = ['All', 'N5', 'N4', 'N3'];
@@ -62,7 +63,7 @@ class _DeckCardListState extends ConsumerState<_DeckCardList> {
     final notifier = ref.read(deckBrowseFilterProvider(widget.type).notifier);
     final colorScheme = Theme.of(context).colorScheme;
 
-    if (cards.isEmpty && filter.searchText.isEmpty && filter.level == 'All') {
+    if (!ref.watch(deckCardsProvider).hasValue) {
       return const Center(child: CircularProgressIndicator());
     }
 

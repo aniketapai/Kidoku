@@ -23,11 +23,11 @@ final myWordsProvider = StreamProvider.autoDispose<List<MyWordEntry>>((ref) asyn
   final dictionaryRepository = ref.watch(dictionaryRepositoryProvider);
 
   await for (final words in userWordRepository.watchAll()) {
-    final entries = await Future.wait(
-      words.map((w) => dictionaryRepository.lookup(w.dictionaryForm)),
+    final entries = await dictionaryRepository.lookupMany(
+      words.map((w) => w.dictionaryForm).toList(),
     );
     yield [
-      for (var i = 0; i < words.length; i++) MyWordEntry(userWord: words[i], entry: entries[i]),
+      for (final w in words) MyWordEntry(userWord: w, entry: entries[w.dictionaryForm]),
     ];
   }
 });
