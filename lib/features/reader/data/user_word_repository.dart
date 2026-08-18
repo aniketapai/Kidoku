@@ -32,6 +32,13 @@ class UserWordRepository {
     await _push(dictionaryForm);
   }
 
+  /// Removes a word from My Words entirely — unlike [save]/[markKnown] this
+  /// doesn't just change status, the word disappears from both lists.
+  Future<void> delete(String dictionaryForm) async {
+    await _db.deleteUserWord(dictionaryForm);
+    await _pushDelete(dictionaryForm);
+  }
+
   /// Best-effort remote sync: the Drift write above is the source of truth
   /// for the UI (it already committed by the time this runs), so a Firestore
   /// failure here — offline, rules rejection, quota — must not surface as an
@@ -56,6 +63,19 @@ class UserWordRepository {
       });
     } catch (e) {
       debugPrint('UserWordRepository._push($dictionaryForm) failed: $e');
+    }
+  }
+
+  /// Mirrors [_push]'s swallow-on-failure behavior: the local delete already
+  /// committed, so a Firestore failure here must not surface as an error on
+  /// what the user correctly sees as a successful delete.
+  Future<void> _pushDelete(String dictionaryForm) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await _firestore.collection('users').doc(uid).collection('words').doc(dictionaryForm).delete();
+    } catch (e) {
+      debugPrint('UserWordRepository._pushDelete($dictionaryForm) failed: $e');
     }
   }
 

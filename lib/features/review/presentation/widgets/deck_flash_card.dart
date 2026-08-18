@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../../../core/database/tables/deck_card_progress_table.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../decks/application/deck_review_provider.dart';
+import 'flash_card_shell.dart';
 
 /// Progressive reveal, ordered by [ReviewDirection]: JP → EN shows kanji,
 /// then (on tap) the kana reading, then (on tap) the English meaning; EN →
@@ -33,47 +35,76 @@ class DeckFlashCard extends StatelessWidget {
     final finalStage = maxStage(reviewCard);
     final showKana = hasKana && revealStage >= kanaStage;
     final showFinal = revealStage >= finalStage;
+    final accentColor = JlptColors.forLevel(card.level);
 
     final extra = card.extra != null
         ? (jsonDecode(card.extra!) as Map<String, dynamic>)
         : const <String, dynamic>{};
 
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 220),
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colorScheme.surfaceContainerHighest),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(primary, style: textTheme.headlineMedium, textAlign: TextAlign.center),
-          if (showKana) ...[
-            const SizedBox(height: 12),
-            Text(card.reading,
-                style: textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-                textAlign: TextAlign.center),
-          ],
-          if (showFinal) ...[
-            const SizedBox(height: 20),
-            Divider(color: colorScheme.surfaceContainerHighest),
-            const SizedBox(height: 12),
-            Text(translation, style: textTheme.bodyLarge, textAlign: TextAlign.center),
-            for (final entry in extra.entries) ...[
-              const SizedBox(height: 8),
-              Text('${entry.value}',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+    return FlashCardShell(
+      cardKey: '${card.id}|${reviewCard.direction.name}',
+      accentColor: accentColor,
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              primary,
+              style: textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+              textAlign: TextAlign.center,
+            ),
+            if (showKana)
+              RevealFadeIn(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    card.reading,
+                    style: textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center),
-            ],
+                ),
+              ),
+            if (showFinal)
+              RevealFadeIn(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 22),
+                  child: Column(
+                    children: [
+                      Container(
+                        height: 2,
+                        width: 48,
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        translation,
+                        style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
+                        textAlign: TextAlign.center,
+                      ),
+                      for (final entry in extra.entries) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          '${entry.value}',
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurface.withValues(alpha: 0.55),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
           ],
-        ],
+        ),
       ),
     );
   }

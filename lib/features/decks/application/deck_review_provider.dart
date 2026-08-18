@@ -8,17 +8,21 @@ import '../../../core/srs/srs_config.dart';
 import '../data/deck_repository.dart';
 import 'deck_data_providers.dart';
 
+/// Which cards Decks-mode review pulls from: [kanji] and [vocab] mirror the
+/// stored [DeckCardType]s directly, while [kanjiVocab] is the same derived
+/// cumulative pool used by the Vocabulary screen's "Kanji Vocab" tab and
+/// Free Review — vocab whose kanji are all covered by the target level or
+/// easier.
+enum DeckReviewPool { vocab, kanji, kanjiVocab }
+
 class DeckReviewFilterState {
-  const DeckReviewFilterState({this.level = 'All', this.type});
+  const DeckReviewFilterState({this.level = 'All', this.pool = DeckReviewPool.vocab});
 
   final String level;
-  final DeckCardType? type; // null = All
+  final DeckReviewPool pool;
 
-  DeckReviewFilterState copyWith({String? level, DeckCardType? type, bool clearType = false}) {
-    return DeckReviewFilterState(
-      level: level ?? this.level,
-      type: clearType ? null : (type ?? this.type),
-    );
+  DeckReviewFilterState copyWith({String? level, DeckReviewPool? pool}) {
+    return DeckReviewFilterState(level: level ?? this.level, pool: pool ?? this.pool);
   }
 }
 
@@ -63,11 +67,22 @@ final deckReviewQueueProvider = Provider<List<DeckReviewCard>>((ref) {
       ref.watch(newDeckCardsPerDayProvider).value ?? SrsConfig.kNewDeckCardsPerDayPerDirection;
   final now = DateTime.now();
 
-  final eligible = cards.where((c) {
-    if (filter.level != 'All' && c.level != filter.level) return false;
-    if (filter.type != null && c.cardType != filter.type) return false;
-    return true;
-  });
+  final Iterable<DeckCard> eligible;
+  switch (filter.pool) {
+    case DeckReviewPool.kanjiVocab:
+      // The cumulative pool is keyed by a specific level (see
+      // vocabulary_screen.dart's own Kanji Vocab tab) — "All" isn't a rung
+      // on that ladder, so fall back to the easiest level.
+      eligible = ref.watch(kanjiVocabCardsProvider(filter.level == 'All' ? 'N5' : filter.level));
+    case DeckReviewPool.kanji:
+      eligible = cards.where(
+        (c) => c.cardType == DeckCardType.kanji && (filter.level == 'All' || c.level == filter.level),
+      );
+    case DeckReviewPool.vocab:
+      eligible = cards.where(
+        (c) => c.cardType == DeckCardType.vocab && (filter.level == 'All' || c.level == filter.level),
+      );
+  }
 
   final due = <DeckReviewCard>[];
   final unseen = <DeckReviewCard>[];

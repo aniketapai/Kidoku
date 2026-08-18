@@ -1,16 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/database/app_database.dart';
 import '../../../core/database/tables/deck_card_progress_table.dart';
-import '../../../core/database/tables/deck_cards_table.dart';
 import '../../../core/srs/srs_config.dart';
 import '../../decks/application/deck_review_actions_provider.dart';
 import '../../decks/application/deck_review_provider.dart';
 import 'widgets/deck_flash_card.dart';
 import 'widgets/free_review_section.dart';
 import 'widgets/my_words_section.dart';
+import 'widgets/review_empty_state.dart';
+import 'widgets/review_grade_buttons.dart';
+import 'widgets/review_progress_bar.dart';
+import 'widgets/review_segmented_control.dart';
 
 enum _ReviewMode { myWords, decks, freeReview }
+
+/// One graded deck card, remembered so a "revert" can put it — and the SRS
+/// state it changed — back exactly as it was. Popped in LIFO order, so
+/// reverting repeatedly walks back through the whole session to the first
+/// word graded.
+class _DeckGradeRecord {
+  const _DeckGradeRecord({
+    required this.cardId,
+    required this.direction,
+    required this.undo,
+  });
+
+  final String cardId;
+  final ReviewDirection direction;
+  final DeckGradeUndo undo;
+}
 
 class ReviewScreen extends ConsumerStatefulWidget {
   const ReviewScreen({super.key});
@@ -24,11 +44,33 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 
   int _deckStage = 0;
   String? _currentDeckCardKey;
+  final List<_DeckGradeRecord> _deckHistory = [];
 
-  void _gradeDeck(DeckReviewCard card, {required bool correct}) {
-    ref
+  Future<void> _gradeDeck(DeckReviewCard card, {required bool correct}) async {
+    final undo = await ref
         .read(deckReviewActionsProvider.notifier)
         .gradeReview(card.card.id, card.direction, correct: correct);
+    if (!mounted) return;
+    setState(() {
+      _deckHistory.add(
+        _DeckGradeRecord(cardId: card.card.id, direction: card.direction, undo: undo),
+      );
+      _deckStage = 0;
+    });
+  }
+
+  Future<void> _revertDeck() async {
+    if (_deckHistory.isEmpty) return;
+    final record = _deckHistory.removeLast();
+    await ref
+        .read(deckReviewActionsProvider.notifier)
+        .undoGradeReview(
+          record.cardId,
+          record.direction,
+          record.undo.previousProgress,
+          record.undo.reviewEventId,
+        );
+    if (!mounted) return;
     setState(() => _deckStage = 0);
   }
 
@@ -48,28 +90,27 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-            child: SegmentedButton<_ReviewMode>(
-              showSelectedIcon: false,
-              style: SegmentedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              ),
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+            child: ReviewSegmentedControl<_ReviewMode>(
               segments: const [
-                ButtonSegment(
+                ReviewSegment(
                   value: _ReviewMode.myWords,
-                  label: Text('My Words', softWrap: false, overflow: TextOverflow.ellipsis),
+                  label: 'My Words',
+                  icon: Icons.bookmark_rounded,
                 ),
-                ButtonSegment(
+                ReviewSegment(
                   value: _ReviewMode.decks,
-                  label: Text('Decks', softWrap: false, overflow: TextOverflow.ellipsis),
+                  label: 'Decks',
+                  icon: Icons.style_rounded,
                 ),
-                ButtonSegment(
+                ReviewSegment(
                   value: _ReviewMode.freeReview,
-                  label: Text('Free Review', softWrap: false, overflow: TextOverflow.ellipsis),
+                  label: 'Free Review',
+                  icon: Icons.shuffle_rounded,
                 ),
               ],
-              selected: {_mode},
-              onSelectionChanged: (selection) => setState(() => _mode = selection.first),
+              selected: _mode,
+              onChanged: (value) => setState(() => _mode = value),
             ),
           ),
           Expanded(
@@ -97,41 +138,48 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-          child: SegmentedButton<ReviewDirection>(
-            showSelectedIcon: false,
+          child: ReviewSegmentedControl<ReviewDirection>(
             segments: const [
-              ButtonSegment(value: ReviewDirection.jpToEn, label: Text('JP → EN')),
-              ButtonSegment(value: ReviewDirection.enToJp, label: Text('EN → JP')),
+              ReviewSegment(value: ReviewDirection.jpToEn, label: 'JP → EN'),
+              ReviewSegment(value: ReviewDirection.enToJp, label: 'EN → JP'),
             ],
-            selected: {direction},
-            onSelectionChanged: (selection) =>
-                ref.read(reviewDirectionProvider.notifier).state = selection.first,
+            selected: direction,
+            onChanged: (value) => ref.read(reviewDirectionProvider.notifier).state = value,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Row(
-            children: [
-              Text(
-                'New words/day: $newCardsPerDay',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.7),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => _showNewCardsPerDayDialog(context, newCardsPerDay),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(12, 6, 14, 6),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.tune_rounded, size: 16, color: colorScheme.primary),
+                    const SizedBox(width: 6),
+                    Text(
+                      'New words/day: $newCardsPerDay',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurface.withValues(alpha: 0.75),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 4),
-              InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () => _showNewCardsPerDayDialog(context, newCardsPerDay),
-                child: Padding(
-                  padding: const EdgeInsets.all(6),
-                  child: Icon(Icons.tune_rounded, size: 18, color: colorScheme.primary),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 12),
         SizedBox(
           height: 40,
           child: ListView(
@@ -151,20 +199,16 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                   ),
                 ),
               for (final entry in const {
-                'All': null,
-                'Kanji': DeckCardType.kanji,
-                'Vocab': DeckCardType.vocab,
+                'Kanji': DeckReviewPool.kanji,
+                'Vocab': DeckReviewPool.vocab,
+                'Kanji Vocab': DeckReviewPool.kanjiVocab,
               }.entries)
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: ChoiceChip(
                     label: Text(entry.key),
-                    selected: filter.type == entry.value,
-                    onSelected: (_) => filterNotifier.update(
-                      (s) => entry.value == null
-                          ? s.copyWith(clearType: true)
-                          : s.copyWith(type: entry.value),
-                    ),
+                    selected: filter.pool == entry.value,
+                    onSelected: (_) => filterNotifier.update((s) => s.copyWith(pool: entry.value)),
                     selectedColor: colorScheme.secondary.withValues(alpha: 0.16),
                     side: BorderSide.none,
                     backgroundColor: colorScheme.surfaceContainerHighest,
@@ -175,7 +219,11 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         ),
         Expanded(
           child: queue.isEmpty
-              ? const _EmptyState()
+              ? const ReviewEmptyState(
+                  icon: Icons.style_rounded,
+                  title: 'All caught up',
+                  message: 'Nothing due for review right now.',
+                )
               : Padding(
                   padding: const EdgeInsets.fromLTRB(24, 16, 24, 110),
                   child: Builder(
@@ -190,11 +238,17 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 
                       return Column(
                         children: [
-                          Text(
-                            '${queue.length} due',
-                            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              color: colorScheme.onSurface.withValues(alpha: 0.6),
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              ReviewCountBadge(count: queue.length, label: 'due'),
+                              ReviewIconButton(
+                                icon: Icons.undo_rounded,
+                                tooltip: 'Revert last grade',
+                                onPressed: _deckHistory.isEmpty ? null : _revertDeck,
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 16),
                           Expanded(
@@ -208,31 +262,11 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                             ),
                           ),
                           const SizedBox(height: 20),
-                          if (_deckStage >= maxStage)
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: OutlinedButton(
-                                    onPressed: () => _gradeDeck(card, correct: false),
-                                    child: const Text('Again'),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: FilledButton(
-                                    onPressed: () => _gradeDeck(card, correct: true),
-                                    child: const Text('Good'),
-                                  ),
-                                ),
-                              ],
-                            )
-                          else
-                            Text(
-                              'Tap the card to reveal',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: colorScheme.onSurface.withValues(alpha: 0.5),
-                              ),
-                            ),
+                          ReviewGradeArea(
+                            revealed: _deckStage >= maxStage,
+                            onAgain: () => _gradeDeck(card, correct: false),
+                            onGood: () => _gradeDeck(card, correct: true),
+                          ),
                         ],
                       );
                     },
@@ -240,29 +274,6 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                 ),
         ),
       ],
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.style_rounded, size: 48, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 12),
-            Text('All caught up', style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 8),
-            const Text('Nothing due for review right now.', textAlign: TextAlign.center),
-          ],
-        ),
-      ),
     );
   }
 }

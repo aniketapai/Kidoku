@@ -3,12 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../../core/database/tables/deck_cards_table.dart';
+import '../../../core/text/romaji_converter.dart';
 import '../../../core/widgets/clearable_search_field.dart';
 import '../../decks/application/deck_browse_provider.dart';
 import '../../decks/application/deck_data_providers.dart';
 import 'widgets/deck_card_tile.dart';
 
-const _kLevels = ['All', 'N5', 'N4', 'N3'];
+const _kLevels = ['N5', 'N4', 'N3'];
 
 class VocabularyScreen extends StatelessWidget {
   const VocabularyScreen({super.key});
@@ -16,10 +17,11 @@ class VocabularyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: SafeArea(
         child: Column(
           children: [
+            const SizedBox(height: 16),
             TabBar(
               labelColor: Theme.of(context).colorScheme.primary,
               unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
@@ -27,6 +29,7 @@ class VocabularyScreen extends StatelessWidget {
               tabs: const [
                 Tab(text: 'Vocab'),
                 Tab(text: 'Kanji'),
+                Tab(text: 'Kanji Vocab'),
               ],
             ),
             const Expanded(
@@ -34,6 +37,7 @@ class VocabularyScreen extends StatelessWidget {
                 children: [
                   _DeckCardList(type: DeckCardType.vocab),
                   _DeckCardList(type: DeckCardType.kanji),
+                  _KanjiVocabList(),
                 ],
               ),
             ),
@@ -171,6 +175,123 @@ class _DeckCardListState extends ConsumerState<_DeckCardList> {
       },
     );
   }
+}
+
+const _kKanjiVocabLevels = ['N5', 'N4', 'N3'];
+
+/// Vocab whose kanji are all covered by the target level or easier — a
+/// standing review set, split into flat sets of 50 labeled by the topics
+/// they cover (e.g. "Numbers – Time") rather than week/category groupings.
+/// Toggles between cumulative N5, N4, and N3 pools (see
+/// [kanjiVocabCardsProvider]).
+class _KanjiVocabList extends ConsumerStatefulWidget {
+  const _KanjiVocabList();
+
+  @override
+  ConsumerState<_KanjiVocabList> createState() => _KanjiVocabListState();
+}
+
+class _KanjiVocabListState extends ConsumerState<_KanjiVocabList> {
+  final Set<String> _expandedKeys = {};
+  String _searchText = '';
+  String _level = 'N5';
+
+  @override
+  Widget build(BuildContext context) {
+    final allCards = ref.watch(kanjiVocabCardsProvider(_level));
+    final colorScheme = Theme.of(context).colorScheme;
+
+    if (!ref.watch(deckCardsProvider).hasValue) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final needle = _searchText.trim().toLowerCase();
+    final kanaNeedle = romajiToHiragana(needle);
+    final cards = needle.isEmpty
+        ? allCards
+        : allCards.where((c) {
+            if (_matchesSearch(c, needle)) return true;
+            if (kanaNeedle != null && kanaNeedle != needle && _matchesSearch(c, kanaNeedle)) {
+              return true;
+            }
+            return false;
+          }).toList();
+
+    final groups = _chunkByTopicRange(cards);
+    final searching = needle.isNotEmpty;
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          child: ClearableSearchField(
+            hintText: 'Search kanji vocab…',
+            onChanged: (value) => setState(() => _searchText = value),
+          ),
+        ),
+        SizedBox(
+          height: 40,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: _kKanjiVocabLevels.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final level = _kKanjiVocabLevels[index];
+              final selected = level == _level;
+              return ChoiceChip(
+                label: Text(level),
+                selected: selected,
+                onSelected: (_) => setState(() => _level = level),
+                selectedColor: colorScheme.primary.withValues(alpha: 0.16),
+                labelStyle: TextStyle(
+                  color: selected
+                      ? colorScheme.primary
+                      : colorScheme.onSurface.withValues(alpha: 0.7),
+                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                ),
+                side: BorderSide.none,
+                backgroundColor: colorScheme.surfaceContainerHighest,
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: cards.isEmpty
+              ? Center(child: Text('No matches', style: Theme.of(context).textTheme.bodyMedium))
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 110),
+                  itemCount: groups.length,
+                  itemBuilder: (context, index) {
+                    final group = groups[index];
+                    // Index rather than label — chunk labels are derived
+                    // from topic names and aren't guaranteed unique.
+                    final key = '$_level:$index';
+                    final expanded = searching || _expandedKeys.contains(key);
+                    return _DeckGroupSection(
+                      key: ValueKey(key),
+                      group: group,
+                      expanded: expanded,
+                      locked: searching,
+                      onToggle: () => setState(() {
+                        if (!_expandedKeys.add(key)) {
+                          _expandedKeys.remove(key);
+                        }
+                      }),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+bool _matchesSearch(DeckCard card, String needle) {
+  return card.expression.contains(needle) ||
+      card.reading.contains(needle) ||
+      card.meaning.toLowerCase().contains(needle);
 }
 
 class _DeckGroupSection extends StatefulWidget {
@@ -356,4 +477,31 @@ List<_DeckCardGroup> _groupByCategory(List<DeckCard> cards) {
     byLabel[label]!.add(card);
   }
   return [for (final label in order) _DeckCardGroup(label: label, cards: byLabel[label]!)];
+}
+
+final _weekPrefixRegex = RegExp(r'^Week\s+[\d.]+\s+(.+)$');
+
+/// Strips the "Week 1.1 " prefix off a category, leaving just the topic
+/// name (e.g. "Numbers"), so chunk labels can read as content rather than
+/// deck bookkeeping.
+String _topicName(String? category) {
+  if (category == null) return '';
+  return _weekPrefixRegex.firstMatch(category)?.group(1) ?? category;
+}
+
+/// Chunks a list into fixed-size sets, ignoring week boundaries, and labels
+/// each chunk by the topics it spans (e.g. "Numbers – Time") rather than a
+/// bare index/range — used by the Kanji Vocab tab, which is a flat review
+/// pool rather than a week-by-week deck.
+List<_DeckCardGroup> _chunkByTopicRange(List<DeckCard> cards, {int size = 50}) {
+  final groups = <_DeckCardGroup>[];
+  for (var i = 0; i < cards.length; i += size) {
+    final end = (i + size < cards.length) ? i + size : cards.length;
+    final chunk = cards.sublist(i, end);
+    final firstTopic = _topicName(chunk.first.category);
+    final lastTopic = _topicName(chunk.last.category);
+    final label = firstTopic == lastTopic ? firstTopic : '$firstTopic – $lastTopic';
+    groups.add(_DeckCardGroup(label: label, cards: chunk));
+  }
+  return groups;
 }

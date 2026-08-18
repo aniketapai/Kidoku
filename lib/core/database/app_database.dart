@@ -15,6 +15,24 @@ import 'tables/user_words_table.dart';
 
 part 'app_database.g.dart';
 
+/// What a [AppDatabase.gradeDeckCardReview] call changed, captured so the
+/// grade can later be undone via [AppDatabase.undoGradeDeckCardReview].
+typedef DeckGradeUndo = ({
+  DeckCardProgressData? previousProgress,
+  int reviewEventId,
+});
+
+/// This device's local-notification preferences — see
+/// [AppDatabase.watchNotificationSettings].
+typedef NotificationSettingsData = ({
+  bool notificationsEnabled,
+  bool studyReminderEnabled,
+  int studyReminderHour,
+  int studyReminderMinute,
+  bool reviewDueRemindersEnabled,
+  bool motivationalRemindersEnabled,
+});
+
 @DriftDatabase(
   tables: [
     DictionaryEntries,
@@ -34,7 +52,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -63,6 +81,17 @@ class AppDatabase extends _$AppDatabase {
       if (from < 9) {
         await m.createTable(reelProgress);
       }
+      if (from < 10) {
+        await m.addColumn(userSettings, userSettings.notificationsEnabled);
+        await m.addColumn(userSettings, userSettings.studyReminderEnabled);
+        await m.addColumn(userSettings, userSettings.studyReminderHour);
+        await m.addColumn(userSettings, userSettings.studyReminderMinute);
+        await m.addColumn(userSettings, userSettings.reviewDueRemindersEnabled);
+        await m.addColumn(
+          userSettings,
+          userSettings.motivationalRemindersEnabled,
+        );
+      }
     },
   );
 
@@ -71,14 +100,16 @@ class AppDatabase extends _$AppDatabase {
   // --- Seed metadata ---
 
   Future<int?> readSeededVersion() async {
-    final row = await (select(seedMeta)..where((t) => t.id.equals(0))).getSingleOrNull();
+    final row = await (select(
+      seedMeta,
+    )..where((t) => t.id.equals(0))).getSingleOrNull();
     return row?.seededVersion;
   }
 
   Future<void> writeSeededVersion(int version) async {
-    await into(
-      seedMeta,
-    ).insertOnConflictUpdate(SeedMetaCompanion.insert(id: const Value(0), seededVersion: version));
+    await into(seedMeta).insertOnConflictUpdate(
+      SeedMetaCompanion.insert(id: const Value(0), seededVersion: version),
+    );
   }
 
   // --- User settings ---
@@ -87,9 +118,9 @@ class AppDatabase extends _$AppDatabase {
   /// direction's rotation per day, or null to use
   /// [SrsConfig.kNewDeckCardsPerDayPerDirection].
   Stream<int?> watchNewDeckCardsPerDayPerDirection() {
-    return (select(userSettings)..where((t) => t.id.equals(0))).watchSingleOrNull().map(
-      (row) => row?.newDeckCardsPerDayPerDirection,
-    );
+    return (select(userSettings)..where((t) => t.id.equals(0)))
+        .watchSingleOrNull()
+        .map((row) => row?.newDeckCardsPerDayPerDirection);
   }
 
   Future<void> writeNewDeckCardsPerDayPerDirection(int? value) async {
@@ -104,22 +135,91 @@ class AppDatabase extends _$AppDatabase {
   /// The story reader's font-size multiplier, or null to use the default
   /// (1.0).
   Stream<double?> watchReaderFontScale() {
-    return (select(userSettings)..where((t) => t.id.equals(0))).watchSingleOrNull().map(
-      (row) => row?.readerFontScale,
-    );
+    return (select(userSettings)..where((t) => t.id.equals(0)))
+        .watchSingleOrNull()
+        .map((row) => row?.readerFontScale);
   }
 
   Future<void> writeReaderFontScale(double? value) async {
     await into(userSettings).insertOnConflictUpdate(
-      UserSettingsCompanion.insert(id: const Value(0), readerFontScale: Value(value)),
+      UserSettingsCompanion.insert(
+        id: const Value(0),
+        readerFontScale: Value(value),
+      ),
+    );
+  }
+
+  /// This device's local-notification preferences — defaults (all on,
+  /// 8:00 PM study reminder) apply until the row exists, matching the
+  /// column defaults in UserSettings so a fresh install and an explicit
+  /// "reset to defaults" write behave the same.
+  Stream<NotificationSettingsData> watchNotificationSettings() {
+    return (select(
+      userSettings,
+    )..where((t) => t.id.equals(0))).watchSingleOrNull().map(
+      (row) => (
+        notificationsEnabled: row?.notificationsEnabled ?? true,
+        studyReminderEnabled: row?.studyReminderEnabled ?? true,
+        studyReminderHour: row?.studyReminderHour ?? 20,
+        studyReminderMinute: row?.studyReminderMinute ?? 0,
+        reviewDueRemindersEnabled: row?.reviewDueRemindersEnabled ?? true,
+        motivationalRemindersEnabled: row?.motivationalRemindersEnabled ?? true,
+      ),
+    );
+  }
+
+  Future<void> writeNotificationsEnabled(bool value) async {
+    await into(userSettings).insertOnConflictUpdate(
+      UserSettingsCompanion.insert(
+        id: const Value(0),
+        notificationsEnabled: Value(value),
+      ),
+    );
+  }
+
+  Future<void> writeStudyReminderEnabled(bool value) async {
+    await into(userSettings).insertOnConflictUpdate(
+      UserSettingsCompanion.insert(
+        id: const Value(0),
+        studyReminderEnabled: Value(value),
+      ),
+    );
+  }
+
+  Future<void> writeStudyReminderTime(int hour, int minute) async {
+    await into(userSettings).insertOnConflictUpdate(
+      UserSettingsCompanion.insert(
+        id: const Value(0),
+        studyReminderHour: Value(hour),
+        studyReminderMinute: Value(minute),
+      ),
+    );
+  }
+
+  Future<void> writeReviewDueRemindersEnabled(bool value) async {
+    await into(userSettings).insertOnConflictUpdate(
+      UserSettingsCompanion.insert(
+        id: const Value(0),
+        reviewDueRemindersEnabled: Value(value),
+      ),
+    );
+  }
+
+  Future<void> writeMotivationalRemindersEnabled(bool value) async {
+    await into(userSettings).insertOnConflictUpdate(
+      UserSettingsCompanion.insert(
+        id: const Value(0),
+        motivationalRemindersEnabled: Value(value),
+      ),
     );
   }
 
   // --- Dictionary ---
 
-  Future<DictionaryEntry?> lookupDictionaryEntry(String dictionaryForm) => (select(
-    dictionaryEntries,
-  )..where((t) => t.dictionaryForm.equals(dictionaryForm))).getSingleOrNull();
+  Future<DictionaryEntry?> lookupDictionaryEntry(String dictionaryForm) =>
+      (select(dictionaryEntries)
+            ..where((t) => t.dictionaryForm.equals(dictionaryForm)))
+          .getSingleOrNull();
 
   /// Batched form of [lookupDictionaryEntry] — one `WHERE ... IN (...)`
   /// query instead of one query per word, for screens (My Words) that
@@ -128,17 +228,19 @@ class AppDatabase extends _$AppDatabase {
     List<String> dictionaryForms,
   ) async {
     if (dictionaryForms.isEmpty) return const {};
-    final rows =
-        await (select(dictionaryEntries)
-              ..where((t) => t.dictionaryForm.isIn(dictionaryForms)))
-            .get();
+    final rows = await (select(
+      dictionaryEntries,
+    )..where((t) => t.dictionaryForm.isIn(dictionaryForms))).get();
     return {for (final row in rows) row.dictionaryForm: row};
   }
 
   /// Prefix match on the Japanese form/reading (what a learner typing
   /// kana/kanji — or romaji converted to kana — expects), most specific
   /// (shortest dictionaryForm) first as a cheap "more specific" proxy.
-  Future<List<DictionaryEntry>> searchJapanesePrefix(String query, {int limit = 50}) async {
+  Future<List<DictionaryEntry>> searchJapanesePrefix(
+    String query, {
+    int limit = 50,
+  }) async {
     final q = query.trim();
     if (q.isEmpty || limit <= 0) return const [];
 
@@ -157,7 +259,10 @@ class AppDatabase extends _$AppDatabase {
   /// a raw substring match alone would let "eat" match inside
   /// "meat"/"seat"/"great", burying the actual verb 食べる under unrelated
   /// nouns that happen to contain the letters.
-  Future<List<DictionaryEntry>> searchMeanings(String query, {int limit = 50}) async {
+  Future<List<DictionaryEntry>> searchMeanings(
+    String query, {
+    int limit = 50,
+  }) async {
     final q = query.trim();
     if (q.isEmpty || limit <= 0) return const [];
 
@@ -173,8 +278,14 @@ class AppDatabase extends _$AppDatabase {
               ..limit(2000))
             .get();
 
-    final wordBoundary = RegExp(r'\b' + RegExp.escape(q) + r'\b', caseSensitive: false);
-    return meaningCandidates.where((e) => wordBoundary.hasMatch(e.meanings)).take(limit).toList();
+    final wordBoundary = RegExp(
+      r'\b' + RegExp.escape(q) + r'\b',
+      caseSensitive: false,
+    );
+    return meaningCandidates
+        .where((e) => wordBoundary.hasMatch(e.meanings))
+        .take(limit)
+        .toList();
   }
 
   // --- User words ---
@@ -208,6 +319,14 @@ class AppDatabase extends _$AppDatabase {
         savedAt: Value(now),
       ),
     );
+  }
+
+  /// Removes a word from My Words entirely (not a status change) — used by
+  /// the delete action on the Saved/Known lists.
+  Future<void> deleteUserWord(String dictionaryForm) {
+    return (delete(
+      userWords,
+    )..where((t) => t.dictionaryForm.equals(dictionaryForm))).go();
   }
 
   /// Every saved/known word, most recently saved first — backs the My Words
@@ -248,16 +367,22 @@ class AppDatabase extends _$AppDatabase {
   // queue and Vocabulary "All" filter both walk this list in order —
   // interleaves unrelated decks card-by-card instead of finishing one
   // before starting the next. deckId first keeps each deck contiguous.
-  Stream<List<DeckCard>> watchDeckCards() => (select(
-    deckCards,
-  )..orderBy([(t) => OrderingTerm.asc(t.deckId), (t) => OrderingTerm.asc(t.sortOrder)])).watch();
+  Stream<List<DeckCard>> watchDeckCards() =>
+      (select(deckCards)..orderBy([
+            (t) => OrderingTerm.asc(t.deckId),
+            (t) => OrderingTerm.asc(t.sortOrder),
+          ]))
+          .watch();
 
   /// One shared live query for deck review progress, avoiding a separate
   /// DB-backed subscription per card. Keyed by "cardId|direction" since
   /// (cardId, direction) is the table's actual primary key.
-  Stream<Map<String, DeckCardProgressData>> watchAllDeckCardProgress() => select(
-    deckCardProgress,
-  ).watch().map((rows) => {for (final row in rows) '${row.cardId}|${row.direction.name}': row});
+  Stream<Map<String, DeckCardProgressData>> watchAllDeckCardProgress() =>
+      select(deckCardProgress).watch().map(
+        (rows) => {
+          for (final row in rows) '${row.cardId}|${row.direction.name}': row,
+        },
+      );
 
   /// Grades a deck-card review — mirrors [gradeReview]'s advance/reset
   /// logic over the same [SrsConfig.intervalsDays] curve. `row == null`
@@ -268,19 +393,23 @@ class AppDatabase extends _$AppDatabase {
   /// "introduce" step; the application layer decides which not-yet-graded
   /// cards to surface (and caps how many per day) by comparing
   /// [watchDeckCards] against [watchAllDeckCardProgress] itself.
-  Future<void> gradeDeckCardReview(
+  Future<DeckGradeUndo> gradeDeckCardReview(
     String cardId,
     ReviewDirection direction, {
     required bool correct,
   }) async {
-    await transaction(() async {
+    return transaction(() async {
       final row =
-          await (select(deckCardProgress)
-                ..where((t) => t.cardId.equals(cardId) & t.direction.equals(direction.name)))
+          await (select(deckCardProgress)..where(
+                (t) =>
+                    t.cardId.equals(cardId) &
+                    t.direction.equals(direction.name),
+              ))
               .getSingleOrNull();
       final currentIndex = row?.intervalIndex ?? -1;
-      final newIndex =
-          correct ? (currentIndex + 1).clamp(0, SrsConfig.intervalsDays.length - 1) : 0;
+      final newIndex = correct
+          ? (currentIndex + 1).clamp(0, SrsConfig.intervalsDays.length - 1)
+          : 0;
       final now = DateTime.now();
       await into(deckCardProgress).insertOnConflictUpdate(
         DeckCardProgressCompanion.insert(
@@ -288,20 +417,62 @@ class AppDatabase extends _$AppDatabase {
           direction: direction,
           introducedAt: Value(row?.introducedAt ?? now),
           intervalIndex: Value(newIndex),
-          dueAt: Value(now.add(Duration(days: SrsConfig.intervalsDays[newIndex]))),
+          dueAt: Value(
+            now.add(Duration(days: SrsConfig.intervalsDays[newIndex])),
+          ),
           lastReviewed: Value(now),
         ),
       );
-      await logReviewEvent(correct: correct, at: now);
+      final reviewEventId = await logReviewEvent(correct: correct, at: now);
+      return (previousProgress: row, reviewEventId: reviewEventId);
+    });
+  }
+
+  /// Reverts a single [gradeDeckCardReview] call — restores the progress
+  /// row exactly as it was beforehand (or removes it, if the card had never
+  /// been graded before) and deletes the review event it logged, so an
+  /// undone grade leaves no trace in either the SRS state or the activity
+  /// log. Powers the review screens' "revert" buttons.
+  Future<void> undoGradeDeckCardReview(
+    String cardId,
+    ReviewDirection direction,
+    DeckCardProgressData? previousProgress,
+    int reviewEventId,
+  ) async {
+    await transaction(() async {
+      if (previousProgress == null) {
+        await (delete(deckCardProgress)..where(
+              (t) =>
+                  t.cardId.equals(cardId) & t.direction.equals(direction.name),
+            ))
+            .go();
+      } else {
+        await into(deckCardProgress).insertOnConflictUpdate(
+          DeckCardProgressCompanion.insert(
+            cardId: previousProgress.cardId,
+            direction: previousProgress.direction,
+            introducedAt: Value(previousProgress.introducedAt),
+            intervalIndex: Value(previousProgress.intervalIndex),
+            dueAt: Value(previousProgress.dueAt),
+            lastReviewed: Value(previousProgress.lastReviewed),
+          ),
+        );
+      }
+      await (delete(
+        reviewEvents,
+      )..where((t) => t.id.equals(reviewEventId))).go();
     });
   }
 
   // --- Review activity log (profile heatmap/graph) ---
 
-  Future<void> logReviewEvent({required bool correct, DateTime? at}) {
-    return into(
-      reviewEvents,
-    ).insert(ReviewEventsCompanion.insert(occurredAt: at ?? DateTime.now(), correct: correct));
+  Future<int> logReviewEvent({required bool correct, DateTime? at}) {
+    return into(reviewEvents).insert(
+      ReviewEventsCompanion.insert(
+        occurredAt: at ?? DateTime.now(),
+        correct: correct,
+      ),
+    );
   }
 
   /// All review events on or after [since] (inclusive), oldest first — the
@@ -316,7 +487,9 @@ class AppDatabase extends _$AppDatabase {
   // --- Achievements (JLPT / NAT-TEST certificates) ---
 
   Stream<List<Achievement>> watchAchievements() {
-    return (select(achievements)..orderBy([(t) => OrderingTerm.desc(t.earnedAt)])).watch();
+    return (select(
+      achievements,
+    )..orderBy([(t) => OrderingTerm.desc(t.earnedAt)])).watch();
   }
 
   Future<void> addAchievement({
@@ -442,7 +615,9 @@ class AppDatabase extends _$AppDatabase {
   Future<UserSetting?> getUserSettingsRow() =>
       (select(userSettings)..where((t) => t.id.equals(0))).getSingleOrNull();
 
-  Future<List<StoryProgressData>> getAllStoryProgress() => select(storyProgress).get();
+  Future<List<StoryProgressData>> getAllStoryProgress() =>
+      select(storyProgress).get();
 
-  Future<List<ReelProgressData>> getAllReelProgress() => select(reelProgress).get();
+  Future<List<ReelProgressData>> getAllReelProgress() =>
+      select(reelProgress).get();
 }

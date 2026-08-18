@@ -5,9 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/meanings_codec.dart';
 import '../../../../core/database/tables/user_words_table.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/jlpt_level_chip.dart';
+import '../../../reader/application/user_word_actions_provider.dart';
 import '../../../reader/presentation/widgets/lookup_bottom_sheet.dart';
 import '../../application/my_words_provider.dart';
+import 'flash_card_shell.dart';
+import 'review_empty_state.dart';
+import 'review_grade_buttons.dart';
+import 'review_progress_bar.dart';
 
 /// A resurfaced "Again" card doesn't come back immediately — it's
 /// reinserted somewhere between 3 and 7 cards later in the queue, mirroring
@@ -21,6 +27,20 @@ const _kAgainJitter = 5;
 /// changes a word's saved/known status — that only happens explicitly, via
 /// the Mark Known / Save buttons in the lookup sheet opened by tapping a
 /// word (see [showLookupBottomSheet]).
+/// Snapshot of the review queue taken right before a grade, so "revert"
+/// can restore it exactly — see [_MyWordsSectionState._grade] / [_revert].
+class _MyWordsHistoryEntry {
+  const _MyWordsHistoryEntry({
+    required this.queueBefore,
+    required this.gradedCountBefore,
+    required this.totalEverBefore,
+  });
+
+  final List<MyWordEntry> queueBefore;
+  final int gradedCountBefore;
+  final int totalEverBefore;
+}
+
 class MyWordsSection extends ConsumerStatefulWidget {
   const MyWordsSection({super.key});
 
@@ -34,6 +54,7 @@ class _MyWordsSectionState extends ConsumerState<MyWordsSection> {
   int _totalEver = 0;
   int _gradedCount = 0;
   int _stage = 0;
+  final List<_MyWordsHistoryEntry> _history = [];
 
   void _startReview(List<MyWordEntry> saved) {
     if (saved.isEmpty) return;
@@ -44,6 +65,7 @@ class _MyWordsSectionState extends ConsumerState<MyWordsSection> {
       _totalEver = shuffled.length;
       _gradedCount = 0;
       _stage = 0;
+      _history.clear();
     });
   }
 
@@ -51,6 +73,7 @@ class _MyWordsSectionState extends ConsumerState<MyWordsSection> {
     setState(() {
       _reviewQueue = null;
       _stage = 0;
+      _history.clear();
     });
   }
 
@@ -61,6 +84,13 @@ class _MyWordsSectionState extends ConsumerState<MyWordsSection> {
   void _grade({required bool correct}) {
     setState(() {
       final queue = _reviewQueue!;
+      _history.add(
+        _MyWordsHistoryEntry(
+          queueBefore: List.of(queue),
+          gradedCountBefore: _gradedCount,
+          totalEverBefore: _totalEver,
+        ),
+      );
       final card = queue.removeAt(0);
       _gradedCount++;
       if (!correct) {
@@ -68,6 +98,20 @@ class _MyWordsSectionState extends ConsumerState<MyWordsSection> {
         queue.insert(min(offset, queue.length), card);
         _totalEver++;
       }
+      _stage = 0;
+    });
+  }
+
+  /// Undoes the most recent grade, restoring the queue exactly as it was
+  /// beforehand. Calling it repeatedly walks back through the whole
+  /// session, all the way to the first word graded.
+  void _revert() {
+    if (_history.isEmpty) return;
+    setState(() {
+      final entry = _history.removeLast();
+      _reviewQueue = entry.queueBefore;
+      _gradedCount = entry.gradedCountBefore;
+      _totalEver = entry.totalEverBefore;
       _stage = 0;
     });
   }
@@ -103,17 +147,23 @@ class _MyWordsSectionState extends ConsumerState<MyWordsSection> {
                 child: TabBarView(
                   children: [
                     saved.isEmpty
-                        ? const _EmptyMessage(
-                            'No saved words yet. Save words you don\'t know from the '
-                            'dictionary lookup sheet in the reader.',
+                        ? const ReviewEmptyState(
+                            icon: Icons.bookmark_outline_rounded,
+                            title: 'No saved words yet',
+                            message:
+                                'Save words you don\'t know from the dictionary lookup '
+                                'sheet in the reader.',
                           )
                         : _SavedTab(words: saved, onStartReview: () => _startReview(saved)),
                     known.isEmpty
-                        ? const _EmptyMessage(
-                            'No known words yet. Mark words you already know from the '
-                            'dictionary lookup sheet.',
+                        ? const ReviewEmptyState(
+                            icon: Icons.check_circle_outline_rounded,
+                            title: 'No known words yet',
+                            message:
+                                'Mark words you already know from the dictionary lookup '
+                                'sheet.',
                           )
-                        : _WordList(words: known),
+                        : _KnownTab(words: known),
                   ],
                 ),
               ),
@@ -127,26 +177,14 @@ class _MyWordsSectionState extends ConsumerState<MyWordsSection> {
   }
 
   Widget _buildReviewSession(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final queue = _reviewQueue!;
 
     if (queue.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.check_circle_rounded, size: 48, color: colorScheme.primary),
-              const SizedBox(height: 12),
-              Text('Review complete', style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 8),
-              Text('Reviewed $_uniqueCount word${_uniqueCount == 1 ? '' : 's'}.'),
-              const SizedBox(height: 20),
-              FilledButton(onPressed: _endReview, child: const Text('Back to My Words')),
-            ],
-          ),
-        ),
+      return ReviewEmptyState(
+        icon: Icons.check_circle_rounded,
+        title: 'Review complete',
+        message: 'Reviewed $_uniqueCount word${_uniqueCount == 1 ? '' : 's'}.',
+        action: FilledButton(onPressed: _endReview, child: const Text('Back to My Words')),
       );
     }
 
@@ -158,18 +196,26 @@ class _MyWordsSectionState extends ConsumerState<MyWordsSection> {
       child: Column(
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                '${_gradedCount + 1} of $_totalEver',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
+              Expanded(
+                child: ReviewProgressBar(current: _gradedCount + 1, total: _totalEver),
               ),
-              TextButton(onPressed: _endReview, child: const Text('End review')),
+              const SizedBox(width: 8),
+              ReviewIconButton(
+                icon: Icons.undo_rounded,
+                tooltip: 'Revert last grade',
+                onPressed: _history.isEmpty ? null : _revert,
+              ),
+              const SizedBox(width: 8),
+              ReviewIconButton(
+                icon: Icons.close_rounded,
+                tooltip: 'End review',
+                onPressed: _endReview,
+              ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           Expanded(
             child: Center(
               child: GestureDetector(
@@ -181,31 +227,11 @@ class _MyWordsSectionState extends ConsumerState<MyWordsSection> {
             ),
           ),
           const SizedBox(height: 20),
-          if (_stage >= maxStage)
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _grade(correct: false),
-                    child: const Text('Again'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () => _grade(correct: true),
-                    child: const Text('Good'),
-                  ),
-                ),
-              ],
-            )
-          else
-            Text(
-              'Tap the card to reveal',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.5)),
-            ),
+          ReviewGradeArea(
+            revealed: _stage >= maxStage,
+            onAgain: () => _grade(correct: false),
+            onGood: () => _grade(correct: true),
+          ),
         ],
       ),
     );
@@ -242,24 +268,29 @@ class _SavedTab extends StatelessWidget {
   }
 }
 
-class _EmptyMessage extends StatelessWidget {
-  const _EmptyMessage(this.message);
+class _KnownTab extends StatelessWidget {
+  const _KnownTab({required this.words});
 
-  final String message;
+  final List<MyWordEntry> words;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+          child: SizedBox(
+            // Matches the FilledButton.icon height in _SavedTab's header row,
+            // so the gap above the first word item is the same in both tabs.
+            height: 40,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text('${words.length} known', style: Theme.of(context).textTheme.labelLarge),
+            ),
+          ),
         ),
-      ),
+        Expanded(child: _WordList(words: words)),
+      ],
     );
   }
 }
@@ -282,14 +313,39 @@ class _WordList extends StatelessWidget {
 
 /// Tapping a word opens the dictionary lookup sheet — the same sheet used
 /// from the reader — which shows full word info and already has the Mark
-/// Known / Save buttons that move a word between Saved and Known.
-class _WordTile extends StatelessWidget {
+/// Known / Save buttons that move a word between Saved and Known. The
+/// trailing delete button instead removes the word from My Words entirely.
+class _WordTile extends ConsumerWidget {
   const _WordTile({required this.word});
 
   final MyWordEntry word;
 
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final dictionaryForm = word.userWord.dictionaryForm;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete word?'),
+        content: Text('"$dictionaryForm" will be removed from My Words.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(userWordActionsProvider.notifier).delete(dictionaryForm);
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final entry = word.entry;
@@ -298,7 +354,7 @@ class _WordTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       onTap: () => showLookupBottomSheet(context, word.userWord.dictionaryForm),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
         decoration: BoxDecoration(
           color: colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
@@ -348,6 +404,12 @@ class _WordTile extends StatelessWidget {
               const SizedBox(width: 8),
               JlptLevelChip(level: entry.jlptLevel),
             ],
+            IconButton(
+              onPressed: () => _confirmDelete(context, ref),
+              icon: Icon(Icons.delete_outline_rounded, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+              tooltip: 'Delete word',
+              visualDensity: VisualDensity.compact,
+            ),
           ],
         ),
       ),
@@ -377,51 +439,73 @@ class _ReviewFlashCard extends StatelessWidget {
     final finalStage = maxStage(entry);
     final showKana = hasKana && revealStage >= kanaStage;
     final showFinal = revealStage >= finalStage;
+    final accentColor = JlptColors.forLevel(dictEntry?.jlptLevel);
 
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 220),
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colorScheme.surfaceContainerHighest),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (dictEntry != null) JlptLevelChip(level: dictEntry.jlptLevel),
-          const SizedBox(height: 12),
-          Text(entry.userWord.dictionaryForm,
-              style: textTheme.headlineMedium, textAlign: TextAlign.center),
-          if (showKana) ...[
-            const SizedBox(height: 12),
+    return FlashCardShell(
+      cardKey: entry.userWord.dictionaryForm,
+      accentColor: accentColor,
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (dictEntry != null) ...[
+              JlptLevelChip(level: dictEntry.jlptLevel),
+              const SizedBox(height: 12),
+            ],
             Text(
-              dictEntry!.reading,
-              style: textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
+              entry.userWord.dictionaryForm,
+              style: textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
               textAlign: TextAlign.center,
             ),
-          ],
-          if (showFinal) ...[
-            const SizedBox(height: 20),
-            Divider(color: colorScheme.surfaceContainerHighest),
-            const SizedBox(height: 12),
-            Text(
-              dictEntry?.partOfSpeech ?? '',
-              style: textTheme.labelMedium?.copyWith(
-                color: colorScheme.onSurface.withValues(alpha: 0.5),
+            if (showKana)
+              RevealFadeIn(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    dictEntry!.reading,
+                    style: textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              dictEntry != null ? decodeMeanings(dictEntry.meanings) : 'No dictionary entry.',
-              style: textTheme.bodyLarge,
-              textAlign: TextAlign.center,
-            ),
+            if (showFinal)
+              RevealFadeIn(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 22),
+                  child: Column(
+                    children: [
+                      Container(
+                        height: 2,
+                        width: 48,
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        dictEntry?.partOfSpeech ?? '',
+                        style: textTheme.labelMedium?.copyWith(
+                          color: colorScheme.onSurface.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        dictEntry != null ? decodeMeanings(dictEntry.meanings) : 'No dictionary entry.',
+                        style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
-        ],
+        ),
       ),
     );
   }

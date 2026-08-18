@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_routes.dart';
 
 /// Side drawer reached from ProfileScreen's menu button — home for the
-/// screens that moved out of the bottom nav (Dictionary search, Vocabulary
-/// decks) to make room for Reels as a primary tab.
+/// screens that don't get a primary bottom-nav tab (Dictionary search,
+/// Camera Translate).
 class ProfileDrawer extends StatelessWidget {
   const ProfileDrawer({super.key});
 
@@ -34,14 +34,6 @@ class ProfileDrawer extends StatelessWidget {
               onTap: () {
                 Navigator.of(context).pop();
                 context.push(AppRoutes.dictionary);
-              },
-            ),
-            _DrawerItem(
-              icon: Icons.bookmark_rounded,
-              label: 'Vocabulary',
-              onTap: () {
-                Navigator.of(context).pop();
-                context.push(AppRoutes.vocabulary);
               },
             ),
             _DrawerItem(

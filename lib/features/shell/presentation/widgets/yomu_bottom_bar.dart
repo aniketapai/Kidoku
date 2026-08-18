@@ -14,8 +14,7 @@ class _NavItemData {
 const _kItems = [
   _NavItemData(Icons.menu_book_rounded, 'Library'),
   _NavItemData(Icons.style_rounded, 'Review'),
-  _NavItemData(Icons.play_circle_fill_rounded, 'Videos'),
-  _NavItemData(Icons.forum_rounded, 'Chat'),
+  _NavItemData(Icons.bookmark_rounded, 'Decks'),
   _NavItemData(Icons.person_rounded, 'Profile'),
 ];
 

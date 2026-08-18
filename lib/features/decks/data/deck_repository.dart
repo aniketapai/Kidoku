@@ -15,8 +15,15 @@ class DeckRepository {
   Stream<Map<String, DeckCardProgressData>> watchAllDeckCardProgress() =>
       _db.watchAllDeckCardProgress();
 
-  Future<void> gradeReview(String cardId, ReviewDirection direction, {required bool correct}) =>
+  Future<DeckGradeUndo> gradeReview(String cardId, ReviewDirection direction, {required bool correct}) =>
       _db.gradeDeckCardReview(cardId, direction, correct: correct);
+
+  Future<void> undoGradeReview(
+    String cardId,
+    ReviewDirection direction,
+    DeckCardProgressData? previousProgress,
+    int reviewEventId,
+  ) => _db.undoGradeDeckCardReview(cardId, direction, previousProgress, reviewEventId);
 
   Stream<int?> watchNewDeckCardsPerDayPerDirection() => _db.watchNewDeckCardsPerDayPerDirection();
 

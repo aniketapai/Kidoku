@@ -41,7 +41,7 @@ final class UserWordActionsProvider
   }
 }
 
-String _$userWordActionsHash() => r'79385e459b174856cb747f1690ff4b4401086aea';
+String _$userWordActionsHash() => r'682bbe5fa35aefd3141b982e55c180535c118191';
 
 abstract class _$UserWordActions extends $Notifier<void> {
   void build();

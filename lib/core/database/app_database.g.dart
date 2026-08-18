@@ -2777,11 +2777,98 @@ class $UserSettingsTable extends UserSettings
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _notificationsEnabledMeta =
+      const VerificationMeta('notificationsEnabled');
+  @override
+  late final GeneratedColumn<bool> notificationsEnabled = GeneratedColumn<bool>(
+    'notifications_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("notifications_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _studyReminderEnabledMeta =
+      const VerificationMeta('studyReminderEnabled');
+  @override
+  late final GeneratedColumn<bool> studyReminderEnabled = GeneratedColumn<bool>(
+    'study_reminder_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("study_reminder_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _studyReminderHourMeta = const VerificationMeta(
+    'studyReminderHour',
+  );
+  @override
+  late final GeneratedColumn<int> studyReminderHour = GeneratedColumn<int>(
+    'study_reminder_hour',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(20),
+  );
+  static const VerificationMeta _studyReminderMinuteMeta =
+      const VerificationMeta('studyReminderMinute');
+  @override
+  late final GeneratedColumn<int> studyReminderMinute = GeneratedColumn<int>(
+    'study_reminder_minute',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _reviewDueRemindersEnabledMeta =
+      const VerificationMeta('reviewDueRemindersEnabled');
+  @override
+  late final GeneratedColumn<bool> reviewDueRemindersEnabled =
+      GeneratedColumn<bool>(
+        'review_due_reminders_enabled',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("review_due_reminders_enabled" IN (0, 1))',
+        ),
+        defaultValue: const Constant(true),
+      );
+  static const VerificationMeta _motivationalRemindersEnabledMeta =
+      const VerificationMeta('motivationalRemindersEnabled');
+  @override
+  late final GeneratedColumn<bool> motivationalRemindersEnabled =
+      GeneratedColumn<bool>(
+        'motivational_reminders_enabled',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("motivational_reminders_enabled" IN (0, 1))',
+        ),
+        defaultValue: const Constant(true),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     newDeckCardsPerDayPerDirection,
     readerFontScale,
+    notificationsEnabled,
+    studyReminderEnabled,
+    studyReminderHour,
+    studyReminderMinute,
+    reviewDueRemindersEnabled,
+    motivationalRemindersEnabled,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2816,6 +2903,60 @@ class $UserSettingsTable extends UserSettings
         ),
       );
     }
+    if (data.containsKey('notifications_enabled')) {
+      context.handle(
+        _notificationsEnabledMeta,
+        notificationsEnabled.isAcceptableOrUnknown(
+          data['notifications_enabled']!,
+          _notificationsEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('study_reminder_enabled')) {
+      context.handle(
+        _studyReminderEnabledMeta,
+        studyReminderEnabled.isAcceptableOrUnknown(
+          data['study_reminder_enabled']!,
+          _studyReminderEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('study_reminder_hour')) {
+      context.handle(
+        _studyReminderHourMeta,
+        studyReminderHour.isAcceptableOrUnknown(
+          data['study_reminder_hour']!,
+          _studyReminderHourMeta,
+        ),
+      );
+    }
+    if (data.containsKey('study_reminder_minute')) {
+      context.handle(
+        _studyReminderMinuteMeta,
+        studyReminderMinute.isAcceptableOrUnknown(
+          data['study_reminder_minute']!,
+          _studyReminderMinuteMeta,
+        ),
+      );
+    }
+    if (data.containsKey('review_due_reminders_enabled')) {
+      context.handle(
+        _reviewDueRemindersEnabledMeta,
+        reviewDueRemindersEnabled.isAcceptableOrUnknown(
+          data['review_due_reminders_enabled']!,
+          _reviewDueRemindersEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('motivational_reminders_enabled')) {
+      context.handle(
+        _motivationalRemindersEnabledMeta,
+        motivationalRemindersEnabled.isAcceptableOrUnknown(
+          data['motivational_reminders_enabled']!,
+          _motivationalRemindersEnabledMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2837,6 +2978,30 @@ class $UserSettingsTable extends UserSettings
         DriftSqlType.double,
         data['${effectivePrefix}reader_font_scale'],
       ),
+      notificationsEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}notifications_enabled'],
+      )!,
+      studyReminderEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}study_reminder_enabled'],
+      )!,
+      studyReminderHour: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}study_reminder_hour'],
+      )!,
+      studyReminderMinute: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}study_reminder_minute'],
+      )!,
+      reviewDueRemindersEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}review_due_reminders_enabled'],
+      )!,
+      motivationalRemindersEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}motivational_reminders_enabled'],
+      )!,
     );
   }
 
@@ -2858,10 +3023,34 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
   /// control — kept separate from furigana visibility, which is a
   /// per-session toggle rather than a persisted preference.
   final double? readerFontScale;
+
+  /// Master switch for all local notifications — see NotificationService.
+  /// Off cancels every scheduled notification regardless of the per-type
+  /// toggles below.
+  final bool notificationsEnabled;
+
+  /// Daily "come study" nudge at [studyReminderHour]:[studyReminderMinute].
+  final bool studyReminderEnabled;
+  final int studyReminderHour;
+  final int studyReminderMinute;
+
+  /// One-shot nudge scheduled for whenever the next deck card falls due —
+  /// rescheduled as progress changes, see ReviewDueNotificationScheduler.
+  final bool reviewDueRemindersEnabled;
+
+  /// Rotating encouragement messages, one per day of the week — see
+  /// MotivationalMessages.
+  final bool motivationalRemindersEnabled;
   const UserSetting({
     required this.id,
     this.newDeckCardsPerDayPerDirection,
     this.readerFontScale,
+    required this.notificationsEnabled,
+    required this.studyReminderEnabled,
+    required this.studyReminderHour,
+    required this.studyReminderMinute,
+    required this.reviewDueRemindersEnabled,
+    required this.motivationalRemindersEnabled,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2875,6 +3064,16 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
     if (!nullToAbsent || readerFontScale != null) {
       map['reader_font_scale'] = Variable<double>(readerFontScale);
     }
+    map['notifications_enabled'] = Variable<bool>(notificationsEnabled);
+    map['study_reminder_enabled'] = Variable<bool>(studyReminderEnabled);
+    map['study_reminder_hour'] = Variable<int>(studyReminderHour);
+    map['study_reminder_minute'] = Variable<int>(studyReminderMinute);
+    map['review_due_reminders_enabled'] = Variable<bool>(
+      reviewDueRemindersEnabled,
+    );
+    map['motivational_reminders_enabled'] = Variable<bool>(
+      motivationalRemindersEnabled,
+    );
     return map;
   }
 
@@ -2888,6 +3087,12 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
       readerFontScale: readerFontScale == null && nullToAbsent
           ? const Value.absent()
           : Value(readerFontScale),
+      notificationsEnabled: Value(notificationsEnabled),
+      studyReminderEnabled: Value(studyReminderEnabled),
+      studyReminderHour: Value(studyReminderHour),
+      studyReminderMinute: Value(studyReminderMinute),
+      reviewDueRemindersEnabled: Value(reviewDueRemindersEnabled),
+      motivationalRemindersEnabled: Value(motivationalRemindersEnabled),
     );
   }
 
@@ -2902,6 +3107,22 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
         json['newDeckCardsPerDayPerDirection'],
       ),
       readerFontScale: serializer.fromJson<double?>(json['readerFontScale']),
+      notificationsEnabled: serializer.fromJson<bool>(
+        json['notificationsEnabled'],
+      ),
+      studyReminderEnabled: serializer.fromJson<bool>(
+        json['studyReminderEnabled'],
+      ),
+      studyReminderHour: serializer.fromJson<int>(json['studyReminderHour']),
+      studyReminderMinute: serializer.fromJson<int>(
+        json['studyReminderMinute'],
+      ),
+      reviewDueRemindersEnabled: serializer.fromJson<bool>(
+        json['reviewDueRemindersEnabled'],
+      ),
+      motivationalRemindersEnabled: serializer.fromJson<bool>(
+        json['motivationalRemindersEnabled'],
+      ),
     );
   }
   @override
@@ -2913,6 +3134,16 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
         newDeckCardsPerDayPerDirection,
       ),
       'readerFontScale': serializer.toJson<double?>(readerFontScale),
+      'notificationsEnabled': serializer.toJson<bool>(notificationsEnabled),
+      'studyReminderEnabled': serializer.toJson<bool>(studyReminderEnabled),
+      'studyReminderHour': serializer.toJson<int>(studyReminderHour),
+      'studyReminderMinute': serializer.toJson<int>(studyReminderMinute),
+      'reviewDueRemindersEnabled': serializer.toJson<bool>(
+        reviewDueRemindersEnabled,
+      ),
+      'motivationalRemindersEnabled': serializer.toJson<bool>(
+        motivationalRemindersEnabled,
+      ),
     };
   }
 
@@ -2920,6 +3151,12 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
     int? id,
     Value<int?> newDeckCardsPerDayPerDirection = const Value.absent(),
     Value<double?> readerFontScale = const Value.absent(),
+    bool? notificationsEnabled,
+    bool? studyReminderEnabled,
+    int? studyReminderHour,
+    int? studyReminderMinute,
+    bool? reviewDueRemindersEnabled,
+    bool? motivationalRemindersEnabled,
   }) => UserSetting(
     id: id ?? this.id,
     newDeckCardsPerDayPerDirection: newDeckCardsPerDayPerDirection.present
@@ -2928,6 +3165,14 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
     readerFontScale: readerFontScale.present
         ? readerFontScale.value
         : this.readerFontScale,
+    notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+    studyReminderEnabled: studyReminderEnabled ?? this.studyReminderEnabled,
+    studyReminderHour: studyReminderHour ?? this.studyReminderHour,
+    studyReminderMinute: studyReminderMinute ?? this.studyReminderMinute,
+    reviewDueRemindersEnabled:
+        reviewDueRemindersEnabled ?? this.reviewDueRemindersEnabled,
+    motivationalRemindersEnabled:
+        motivationalRemindersEnabled ?? this.motivationalRemindersEnabled,
   );
   UserSetting copyWithCompanion(UserSettingsCompanion data) {
     return UserSetting(
@@ -2939,6 +3184,24 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
       readerFontScale: data.readerFontScale.present
           ? data.readerFontScale.value
           : this.readerFontScale,
+      notificationsEnabled: data.notificationsEnabled.present
+          ? data.notificationsEnabled.value
+          : this.notificationsEnabled,
+      studyReminderEnabled: data.studyReminderEnabled.present
+          ? data.studyReminderEnabled.value
+          : this.studyReminderEnabled,
+      studyReminderHour: data.studyReminderHour.present
+          ? data.studyReminderHour.value
+          : this.studyReminderHour,
+      studyReminderMinute: data.studyReminderMinute.present
+          ? data.studyReminderMinute.value
+          : this.studyReminderMinute,
+      reviewDueRemindersEnabled: data.reviewDueRemindersEnabled.present
+          ? data.reviewDueRemindersEnabled.value
+          : this.reviewDueRemindersEnabled,
+      motivationalRemindersEnabled: data.motivationalRemindersEnabled.present
+          ? data.motivationalRemindersEnabled.value
+          : this.motivationalRemindersEnabled,
     );
   }
 
@@ -2949,14 +3212,29 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
           ..write(
             'newDeckCardsPerDayPerDirection: $newDeckCardsPerDayPerDirection, ',
           )
-          ..write('readerFontScale: $readerFontScale')
+          ..write('readerFontScale: $readerFontScale, ')
+          ..write('notificationsEnabled: $notificationsEnabled, ')
+          ..write('studyReminderEnabled: $studyReminderEnabled, ')
+          ..write('studyReminderHour: $studyReminderHour, ')
+          ..write('studyReminderMinute: $studyReminderMinute, ')
+          ..write('reviewDueRemindersEnabled: $reviewDueRemindersEnabled, ')
+          ..write('motivationalRemindersEnabled: $motivationalRemindersEnabled')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, newDeckCardsPerDayPerDirection, readerFontScale);
+  int get hashCode => Object.hash(
+    id,
+    newDeckCardsPerDayPerDirection,
+    readerFontScale,
+    notificationsEnabled,
+    studyReminderEnabled,
+    studyReminderHour,
+    studyReminderMinute,
+    reviewDueRemindersEnabled,
+    motivationalRemindersEnabled,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2964,33 +3242,75 @@ class UserSetting extends DataClass implements Insertable<UserSetting> {
           other.id == this.id &&
           other.newDeckCardsPerDayPerDirection ==
               this.newDeckCardsPerDayPerDirection &&
-          other.readerFontScale == this.readerFontScale);
+          other.readerFontScale == this.readerFontScale &&
+          other.notificationsEnabled == this.notificationsEnabled &&
+          other.studyReminderEnabled == this.studyReminderEnabled &&
+          other.studyReminderHour == this.studyReminderHour &&
+          other.studyReminderMinute == this.studyReminderMinute &&
+          other.reviewDueRemindersEnabled == this.reviewDueRemindersEnabled &&
+          other.motivationalRemindersEnabled ==
+              this.motivationalRemindersEnabled);
 }
 
 class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
   final Value<int> id;
   final Value<int?> newDeckCardsPerDayPerDirection;
   final Value<double?> readerFontScale;
+  final Value<bool> notificationsEnabled;
+  final Value<bool> studyReminderEnabled;
+  final Value<int> studyReminderHour;
+  final Value<int> studyReminderMinute;
+  final Value<bool> reviewDueRemindersEnabled;
+  final Value<bool> motivationalRemindersEnabled;
   const UserSettingsCompanion({
     this.id = const Value.absent(),
     this.newDeckCardsPerDayPerDirection = const Value.absent(),
     this.readerFontScale = const Value.absent(),
+    this.notificationsEnabled = const Value.absent(),
+    this.studyReminderEnabled = const Value.absent(),
+    this.studyReminderHour = const Value.absent(),
+    this.studyReminderMinute = const Value.absent(),
+    this.reviewDueRemindersEnabled = const Value.absent(),
+    this.motivationalRemindersEnabled = const Value.absent(),
   });
   UserSettingsCompanion.insert({
     this.id = const Value.absent(),
     this.newDeckCardsPerDayPerDirection = const Value.absent(),
     this.readerFontScale = const Value.absent(),
+    this.notificationsEnabled = const Value.absent(),
+    this.studyReminderEnabled = const Value.absent(),
+    this.studyReminderHour = const Value.absent(),
+    this.studyReminderMinute = const Value.absent(),
+    this.reviewDueRemindersEnabled = const Value.absent(),
+    this.motivationalRemindersEnabled = const Value.absent(),
   });
   static Insertable<UserSetting> custom({
     Expression<int>? id,
     Expression<int>? newDeckCardsPerDayPerDirection,
     Expression<double>? readerFontScale,
+    Expression<bool>? notificationsEnabled,
+    Expression<bool>? studyReminderEnabled,
+    Expression<int>? studyReminderHour,
+    Expression<int>? studyReminderMinute,
+    Expression<bool>? reviewDueRemindersEnabled,
+    Expression<bool>? motivationalRemindersEnabled,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (newDeckCardsPerDayPerDirection != null)
         'new_deck_cards_per_day_per_direction': newDeckCardsPerDayPerDirection,
       if (readerFontScale != null) 'reader_font_scale': readerFontScale,
+      if (notificationsEnabled != null)
+        'notifications_enabled': notificationsEnabled,
+      if (studyReminderEnabled != null)
+        'study_reminder_enabled': studyReminderEnabled,
+      if (studyReminderHour != null) 'study_reminder_hour': studyReminderHour,
+      if (studyReminderMinute != null)
+        'study_reminder_minute': studyReminderMinute,
+      if (reviewDueRemindersEnabled != null)
+        'review_due_reminders_enabled': reviewDueRemindersEnabled,
+      if (motivationalRemindersEnabled != null)
+        'motivational_reminders_enabled': motivationalRemindersEnabled,
     });
   }
 
@@ -2998,12 +3318,26 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
     Value<int>? id,
     Value<int?>? newDeckCardsPerDayPerDirection,
     Value<double?>? readerFontScale,
+    Value<bool>? notificationsEnabled,
+    Value<bool>? studyReminderEnabled,
+    Value<int>? studyReminderHour,
+    Value<int>? studyReminderMinute,
+    Value<bool>? reviewDueRemindersEnabled,
+    Value<bool>? motivationalRemindersEnabled,
   }) {
     return UserSettingsCompanion(
       id: id ?? this.id,
       newDeckCardsPerDayPerDirection:
           newDeckCardsPerDayPerDirection ?? this.newDeckCardsPerDayPerDirection,
       readerFontScale: readerFontScale ?? this.readerFontScale,
+      notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+      studyReminderEnabled: studyReminderEnabled ?? this.studyReminderEnabled,
+      studyReminderHour: studyReminderHour ?? this.studyReminderHour,
+      studyReminderMinute: studyReminderMinute ?? this.studyReminderMinute,
+      reviewDueRemindersEnabled:
+          reviewDueRemindersEnabled ?? this.reviewDueRemindersEnabled,
+      motivationalRemindersEnabled:
+          motivationalRemindersEnabled ?? this.motivationalRemindersEnabled,
     );
   }
 
@@ -3021,6 +3355,30 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
     if (readerFontScale.present) {
       map['reader_font_scale'] = Variable<double>(readerFontScale.value);
     }
+    if (notificationsEnabled.present) {
+      map['notifications_enabled'] = Variable<bool>(notificationsEnabled.value);
+    }
+    if (studyReminderEnabled.present) {
+      map['study_reminder_enabled'] = Variable<bool>(
+        studyReminderEnabled.value,
+      );
+    }
+    if (studyReminderHour.present) {
+      map['study_reminder_hour'] = Variable<int>(studyReminderHour.value);
+    }
+    if (studyReminderMinute.present) {
+      map['study_reminder_minute'] = Variable<int>(studyReminderMinute.value);
+    }
+    if (reviewDueRemindersEnabled.present) {
+      map['review_due_reminders_enabled'] = Variable<bool>(
+        reviewDueRemindersEnabled.value,
+      );
+    }
+    if (motivationalRemindersEnabled.present) {
+      map['motivational_reminders_enabled'] = Variable<bool>(
+        motivationalRemindersEnabled.value,
+      );
+    }
     return map;
   }
 
@@ -3031,7 +3389,13 @@ class UserSettingsCompanion extends UpdateCompanion<UserSetting> {
           ..write(
             'newDeckCardsPerDayPerDirection: $newDeckCardsPerDayPerDirection, ',
           )
-          ..write('readerFontScale: $readerFontScale')
+          ..write('readerFontScale: $readerFontScale, ')
+          ..write('notificationsEnabled: $notificationsEnabled, ')
+          ..write('studyReminderEnabled: $studyReminderEnabled, ')
+          ..write('studyReminderHour: $studyReminderHour, ')
+          ..write('studyReminderMinute: $studyReminderMinute, ')
+          ..write('reviewDueRemindersEnabled: $reviewDueRemindersEnabled, ')
+          ..write('motivationalRemindersEnabled: $motivationalRemindersEnabled')
           ..write(')'))
         .toString();
   }
@@ -5185,12 +5549,24 @@ typedef $$UserSettingsTableCreateCompanionBuilder =
       Value<int> id,
       Value<int?> newDeckCardsPerDayPerDirection,
       Value<double?> readerFontScale,
+      Value<bool> notificationsEnabled,
+      Value<bool> studyReminderEnabled,
+      Value<int> studyReminderHour,
+      Value<int> studyReminderMinute,
+      Value<bool> reviewDueRemindersEnabled,
+      Value<bool> motivationalRemindersEnabled,
     });
 typedef $$UserSettingsTableUpdateCompanionBuilder =
     UserSettingsCompanion Function({
       Value<int> id,
       Value<int?> newDeckCardsPerDayPerDirection,
       Value<double?> readerFontScale,
+      Value<bool> notificationsEnabled,
+      Value<bool> studyReminderEnabled,
+      Value<int> studyReminderHour,
+      Value<int> studyReminderMinute,
+      Value<bool> reviewDueRemindersEnabled,
+      Value<bool> motivationalRemindersEnabled,
     });
 
 class $$UserSettingsTableFilterComposer
@@ -5214,6 +5590,36 @@ class $$UserSettingsTableFilterComposer
 
   ColumnFilters<double> get readerFontScale => $composableBuilder(
     column: $table.readerFontScale,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get notificationsEnabled => $composableBuilder(
+    column: $table.notificationsEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get studyReminderEnabled => $composableBuilder(
+    column: $table.studyReminderEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get studyReminderHour => $composableBuilder(
+    column: $table.studyReminderHour,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get studyReminderMinute => $composableBuilder(
+    column: $table.studyReminderMinute,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get reviewDueRemindersEnabled => $composableBuilder(
+    column: $table.reviewDueRemindersEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get motivationalRemindersEnabled => $composableBuilder(
+    column: $table.motivationalRemindersEnabled,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -5241,6 +5647,36 @@ class $$UserSettingsTableOrderingComposer
     column: $table.readerFontScale,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get notificationsEnabled => $composableBuilder(
+    column: $table.notificationsEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get studyReminderEnabled => $composableBuilder(
+    column: $table.studyReminderEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get studyReminderHour => $composableBuilder(
+    column: $table.studyReminderHour,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get studyReminderMinute => $composableBuilder(
+    column: $table.studyReminderMinute,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get reviewDueRemindersEnabled => $composableBuilder(
+    column: $table.reviewDueRemindersEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get motivationalRemindersEnabled => $composableBuilder(
+    column: $table.motivationalRemindersEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$UserSettingsTableAnnotationComposer
@@ -5262,6 +5698,36 @@ class $$UserSettingsTableAnnotationComposer
 
   GeneratedColumn<double> get readerFontScale => $composableBuilder(
     column: $table.readerFontScale,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get notificationsEnabled => $composableBuilder(
+    column: $table.notificationsEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get studyReminderEnabled => $composableBuilder(
+    column: $table.studyReminderEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get studyReminderHour => $composableBuilder(
+    column: $table.studyReminderHour,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get studyReminderMinute => $composableBuilder(
+    column: $table.studyReminderMinute,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get reviewDueRemindersEnabled => $composableBuilder(
+    column: $table.reviewDueRemindersEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get motivationalRemindersEnabled => $composableBuilder(
+    column: $table.motivationalRemindersEnabled,
     builder: (column) => column,
   );
 }
@@ -5301,10 +5767,22 @@ class $$UserSettingsTableTableManager
                 Value<int?> newDeckCardsPerDayPerDirection =
                     const Value.absent(),
                 Value<double?> readerFontScale = const Value.absent(),
+                Value<bool> notificationsEnabled = const Value.absent(),
+                Value<bool> studyReminderEnabled = const Value.absent(),
+                Value<int> studyReminderHour = const Value.absent(),
+                Value<int> studyReminderMinute = const Value.absent(),
+                Value<bool> reviewDueRemindersEnabled = const Value.absent(),
+                Value<bool> motivationalRemindersEnabled = const Value.absent(),
               }) => UserSettingsCompanion(
                 id: id,
                 newDeckCardsPerDayPerDirection: newDeckCardsPerDayPerDirection,
                 readerFontScale: readerFontScale,
+                notificationsEnabled: notificationsEnabled,
+                studyReminderEnabled: studyReminderEnabled,
+                studyReminderHour: studyReminderHour,
+                studyReminderMinute: studyReminderMinute,
+                reviewDueRemindersEnabled: reviewDueRemindersEnabled,
+                motivationalRemindersEnabled: motivationalRemindersEnabled,
               ),
           createCompanionCallback:
               ({
@@ -5312,10 +5790,22 @@ class $$UserSettingsTableTableManager
                 Value<int?> newDeckCardsPerDayPerDirection =
                     const Value.absent(),
                 Value<double?> readerFontScale = const Value.absent(),
+                Value<bool> notificationsEnabled = const Value.absent(),
+                Value<bool> studyReminderEnabled = const Value.absent(),
+                Value<int> studyReminderHour = const Value.absent(),
+                Value<int> studyReminderMinute = const Value.absent(),
+                Value<bool> reviewDueRemindersEnabled = const Value.absent(),
+                Value<bool> motivationalRemindersEnabled = const Value.absent(),
               }) => UserSettingsCompanion.insert(
                 id: id,
                 newDeckCardsPerDayPerDirection: newDeckCardsPerDayPerDirection,
                 readerFontScale: readerFontScale,
+                notificationsEnabled: notificationsEnabled,
+                studyReminderEnabled: studyReminderEnabled,
+                studyReminderHour: studyReminderHour,
+                studyReminderMinute: studyReminderMinute,
+                reviewDueRemindersEnabled: reviewDueRemindersEnabled,
+                motivationalRemindersEnabled: motivationalRemindersEnabled,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

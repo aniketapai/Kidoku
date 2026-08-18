@@ -12,7 +12,7 @@ const _kMissingKeyMessage =
     'No Gemini API key configured. Add one to secrets.json and run with '
     '--dart-define-from-file=secrets.json (see README).';
 
-/// Bottom-nav tab: a real back-and-forth chat with "Coach" — say what you
+/// Reached from the drawer: a real back-and-forth chat with "Coach" — say what you
 /// want in Japanese, English, or romaji (mixed freely) and get natural
 /// phrasing back at your chosen politeness register, with the conversation
 /// remembered turn to turn.

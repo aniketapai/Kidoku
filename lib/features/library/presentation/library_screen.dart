@@ -13,24 +13,76 @@ class LibraryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return DefaultTabController(
       length: _kLevels.length,
       child: SafeArea(
         child: Column(
           children: [
+            const SizedBox(height: 12),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
               child: Row(
                 children: [
-                  Text('Library', style: Theme.of(context).textTheme.headlineSmall),
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [colorScheme.primary, colorScheme.secondary],
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(Icons.auto_stories_rounded, color: colorScheme.onPrimary, size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Stories',
+                          style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        Text(
+                          'Graded readers for your level',
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-            TabBar(
-              labelColor: Theme.of(context).colorScheme.primary,
-              unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-              indicatorColor: Theme.of(context).colorScheme.primary,
-              tabs: [for (final level in _kLevels) Tab(text: level)],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: TabBar(
+                  dividerColor: Colors.transparent,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicator: BoxDecoration(
+                    color: colorScheme.primary,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  splashBorderRadius: BorderRadius.circular(10),
+                  labelColor: colorScheme.onPrimary,
+                  unselectedLabelColor: colorScheme.onSurface.withValues(alpha: 0.6),
+                  labelStyle: const TextStyle(fontWeight: FontWeight.w600),
+                  unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
+                  tabs: [for (final level in _kLevels) Tab(text: level)],
+                ),
+              ),
             ),
             const Expanded(
               child: TabBarView(
@@ -57,24 +109,23 @@ class _StoryList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final manifestAsync = ref.watch(storyManifestProvider);
     final progressAsync = ref.watch(allStoryProgressProvider);
-    final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
 
     return manifestAsync.when(
       data: (manifest) {
         final stories = manifest.where((s) => s.level == level).toList();
         if (stories.isEmpty) {
-          return Center(child: Text('No stories yet', style: textTheme.bodyMedium));
+          return _EmptyState(
+            icon: Icons.auto_stories_outlined,
+            message: 'No stories yet',
+          );
         }
         final progress = progressAsync.value ?? const {};
 
         return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 110),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
           itemCount: stories.length,
-          separatorBuilder: (_, _) => Padding(
-            padding: const EdgeInsets.only(left: 54),
-            child: Divider(height: 1, color: colorScheme.surfaceContainerHighest),
-          ),
+          separatorBuilder: (_, _) => const SizedBox(height: 10),
           itemBuilder: (context, index) {
             final meta = stories[index];
             return StoryCard(
@@ -86,8 +137,37 @@ class _StoryList extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stackTrace) =>
-          Center(child: Text('Could not load stories.', style: TextStyle(color: colorScheme.error))),
+      error: (error, stackTrace) => _EmptyState(
+        icon: Icons.error_outline_rounded,
+        message: 'Could not load stories.',
+        color: colorScheme.error,
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.icon, required this.message, this.color});
+
+  final IconData icon;
+  final String message;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final tint = color ?? colorScheme.onSurface.withValues(alpha: 0.35);
+
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 40, color: tint),
+          const SizedBox(height: 12),
+          Text(message, style: textTheme.bodyMedium?.copyWith(color: tint)),
+        ],
+      ),
     );
   }
 }

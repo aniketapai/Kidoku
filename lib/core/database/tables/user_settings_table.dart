@@ -15,6 +15,30 @@ class UserSettings extends Table {
   /// per-session toggle rather than a persisted preference.
   RealColumn get readerFontScale => real().nullable()();
 
+  /// Master switch for all local notifications — see NotificationService.
+  /// Off cancels every scheduled notification regardless of the per-type
+  /// toggles below.
+  BoolColumn get notificationsEnabled =>
+      boolean().withDefault(const Constant(true))();
+
+  /// Daily "come study" nudge at [studyReminderHour]:[studyReminderMinute].
+  BoolColumn get studyReminderEnabled =>
+      boolean().withDefault(const Constant(true))();
+  IntColumn get studyReminderHour =>
+      integer().withDefault(const Constant(20))();
+  IntColumn get studyReminderMinute =>
+      integer().withDefault(const Constant(0))();
+
+  /// One-shot nudge scheduled for whenever the next deck card falls due —
+  /// rescheduled as progress changes, see ReviewDueNotificationScheduler.
+  BoolColumn get reviewDueRemindersEnabled =>
+      boolean().withDefault(const Constant(true))();
+
+  /// Rotating encouragement messages, one per day of the week — see
+  /// MotivationalMessages.
+  BoolColumn get motivationalRemindersEnabled =>
+      boolean().withDefault(const Constant(true))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

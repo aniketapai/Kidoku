@@ -183,87 +183,124 @@ class BackupRepository {
 
   /// Pulls every backup collection down into the local Drift tables,
   /// upserting so it's safe to call even if some local rows already exist.
+  ///
+  /// Each collection is restored inside its own try/catch: a malformed or
+  /// unexpected row in one collection (e.g. a stale enum name in
+  /// backupDeckCardProgress) must not abort the whole restore and silently
+  /// take every collection after it down too — that's how a device could
+  /// come back with everything except, say, story progress, with no error
+  /// ever surfacing (the caller's own catch is silent, see sign_in_screen).
+  /// Failures are collected and rethrown together at the end so the caller
+  /// still learns the restore was incomplete.
   Future<void> restoreBackup() async {
     final userDoc = _userDoc();
     if (userDoc == null) return;
 
-    final wordsSnapshot = await userDoc.collection('words').get();
-    for (final doc in wordsSnapshot.docs) {
-      final data = doc.data();
-      await _db.into(_db.userWords).insertOnConflictUpdate(
-            UserWordsCompanion.insert(
-              dictionaryForm: doc.id,
-              status: WordStatus.values.byName(data['status'] as String),
-              lastSeen: DateTime.parse(data['lastSeen'] as String),
-              savedAt: Value(
-                data['savedAt'] != null ? DateTime.parse(data['savedAt'] as String) : null,
+    final errors = <Object>[];
+
+    await _restoreCollection(errors, () async {
+      final wordsSnapshot = await userDoc.collection('words').get();
+      for (final doc in wordsSnapshot.docs) {
+        final data = doc.data();
+        await _db.into(_db.userWords).insertOnConflictUpdate(
+              UserWordsCompanion.insert(
+                dictionaryForm: doc.id,
+                status: WordStatus.values.byName(data['status'] as String),
+                lastSeen: DateTime.parse(data['lastSeen'] as String),
+                savedAt: Value(
+                  data['savedAt'] != null ? DateTime.parse(data['savedAt'] as String) : null,
+                ),
               ),
-            ),
-          );
-    }
+            );
+      }
+    });
 
-    final deckCardProgressSnapshot = await userDoc.collection('backupDeckCardProgress').get();
-    for (final doc in deckCardProgressSnapshot.docs) {
-      final data = doc.data();
-      await _db.into(_db.deckCardProgress).insertOnConflictUpdate(
-            DeckCardProgressCompanion.insert(
-              cardId: data['cardId'] as String,
-              direction: ReviewDirection.values.byName(data['direction'] as String),
-              dueAt: Value(_parseNullableDate(data['dueAt'])),
-              intervalIndex: Value(data['intervalIndex'] as int? ?? 0),
-              introducedAt: Value(_parseNullableDate(data['introducedAt'])),
-              lastReviewed: Value(_parseNullableDate(data['lastReviewed'])),
-            ),
-          );
-    }
+    await _restoreCollection(errors, () async {
+      final deckCardProgressSnapshot = await userDoc.collection('backupDeckCardProgress').get();
+      for (final doc in deckCardProgressSnapshot.docs) {
+        final data = doc.data();
+        await _db.into(_db.deckCardProgress).insertOnConflictUpdate(
+              DeckCardProgressCompanion.insert(
+                cardId: data['cardId'] as String,
+                direction: ReviewDirection.values.byName(data['direction'] as String),
+                dueAt: Value(_parseNullableDate(data['dueAt'])),
+                intervalIndex: Value(data['intervalIndex'] as int? ?? 0),
+                introducedAt: Value(_parseNullableDate(data['introducedAt'])),
+                lastReviewed: Value(_parseNullableDate(data['lastReviewed'])),
+              ),
+            );
+      }
+    });
 
-    final reviewEventsSnapshot = await userDoc.collection('backupReviewEvents').get();
-    for (final doc in reviewEventsSnapshot.docs) {
-      final data = doc.data();
-      await _db.logReviewEvent(
-        correct: data['correct'] as bool,
-        at: DateTime.parse(data['occurredAt'] as String),
-      );
-    }
+    await _restoreCollection(errors, () async {
+      final reviewEventsSnapshot = await userDoc.collection('backupReviewEvents').get();
+      for (final doc in reviewEventsSnapshot.docs) {
+        final data = doc.data();
+        await _db.logReviewEvent(
+          correct: data['correct'] as bool,
+          at: DateTime.parse(data['occurredAt'] as String),
+        );
+      }
+    });
 
-    final achievementsSnapshot = await userDoc.collection('backupAchievements').get();
-    for (final doc in achievementsSnapshot.docs) {
-      final data = doc.data();
-      await _db.addAchievement(
-        type: CertificateType.values.byName(data['type'] as String),
-        level: data['level'] as String,
-        earnedAt: DateTime.parse(data['earnedAt'] as String),
-        note: data['note'] as String?,
-      );
-    }
+    await _restoreCollection(errors, () async {
+      final achievementsSnapshot = await userDoc.collection('backupAchievements').get();
+      for (final doc in achievementsSnapshot.docs) {
+        final data = doc.data();
+        await _db.addAchievement(
+          type: CertificateType.values.byName(data['type'] as String),
+          level: data['level'] as String,
+          earnedAt: DateTime.parse(data['earnedAt'] as String),
+          note: data['note'] as String?,
+        );
+      }
+    });
 
-    final storyProgressSnapshot = await userDoc.collection('backupStoryProgress').get();
-    for (final doc in storyProgressSnapshot.docs) {
-      final data = doc.data();
-      await _db.saveStoryProgress(
-        doc.id,
-        lastPageIndex: data['lastPageIndex'] as int? ?? 0,
-        completed: data['completed'] as bool? ?? false,
-      );
-    }
+    await _restoreCollection(errors, () async {
+      final storyProgressSnapshot = await userDoc.collection('backupStoryProgress').get();
+      for (final doc in storyProgressSnapshot.docs) {
+        final data = doc.data();
+        await _db.saveStoryProgress(
+          doc.id,
+          lastPageIndex: data['lastPageIndex'] as int? ?? 0,
+          completed: data['completed'] as bool? ?? false,
+        );
+      }
+    });
 
-    final reelProgressSnapshot = await userDoc.collection('backupReelProgress').get();
-    for (final doc in reelProgressSnapshot.docs) {
-      final data = doc.data();
-      await _db.saveReelProgress(
-        doc.id,
-        lastPositionMs: data['lastPositionMs'] as int? ?? 0,
-        completed: data['completed'] as bool? ?? false,
-      );
-    }
+    await _restoreCollection(errors, () async {
+      final reelProgressSnapshot = await userDoc.collection('backupReelProgress').get();
+      for (final doc in reelProgressSnapshot.docs) {
+        final data = doc.data();
+        await _db.saveReelProgress(
+          doc.id,
+          lastPositionMs: data['lastPositionMs'] as int? ?? 0,
+          completed: data['completed'] as bool? ?? false,
+        );
+      }
+    });
 
-    final settingsSnapshot = await userDoc.collection('backupSettings').doc('singleton').get();
-    final settingsData = settingsSnapshot.data();
-    if (settingsData != null) {
-      await _db.writeNewDeckCardsPerDayPerDirection(
-        settingsData['newDeckCardsPerDayPerDirection'] as int?,
-      );
-      await _db.writeReaderFontScale(settingsData['readerFontScale'] as double?);
+    await _restoreCollection(errors, () async {
+      final settingsSnapshot = await userDoc.collection('backupSettings').doc('singleton').get();
+      final settingsData = settingsSnapshot.data();
+      if (settingsData != null) {
+        await _db.writeNewDeckCardsPerDayPerDirection(
+          settingsData['newDeckCardsPerDayPerDirection'] as int?,
+        );
+        await _db.writeReaderFontScale(settingsData['readerFontScale'] as double?);
+      }
+    });
+
+    if (errors.isNotEmpty) {
+      throw StateError('Restore finished with ${errors.length} failed collection(s): $errors');
+    }
+  }
+
+  Future<void> _restoreCollection(List<Object> errors, Future<void> Function() restore) async {
+    try {
+      await restore();
+    } catch (e) {
+      errors.add(e);
     }
   }
 

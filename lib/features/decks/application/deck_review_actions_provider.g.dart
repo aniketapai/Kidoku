@@ -41,7 +41,7 @@ final class DeckReviewActionsProvider
   }
 }
 
-String _$deckReviewActionsHash() => r'398d5b8140e0c0b91af4a5365e15ee4da8c1a8cd';
+String _$deckReviewActionsHash() => r'4fc18e9979a97148758e791298c29f4f0227af31';
 
 abstract class _$DeckReviewActions extends $Notifier<void> {
   void build();

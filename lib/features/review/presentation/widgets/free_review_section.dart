@@ -11,8 +11,33 @@ import '../../../decks/application/deck_data_providers.dart';
 import '../../../decks/application/deck_review_actions_provider.dart';
 import '../../../decks/application/deck_review_provider.dart';
 import 'deck_flash_card.dart';
+import 'review_empty_state.dart';
+import 'review_grade_buttons.dart';
+import 'review_progress_bar.dart';
+import 'review_segmented_control.dart';
 
-enum _FreeReviewType { vocab, kanji }
+/// Snapshot of session state taken right before a grade, so "revert" can
+/// restore the local queue exactly as well as undo the SRS write the grade
+/// made — see [_FreeReviewSectionState._grade] / [_revert].
+class _FreeReviewHistoryEntry {
+  const _FreeReviewHistoryEntry({
+    required this.queueBefore,
+    required this.gradedCountBefore,
+    required this.totalEverBefore,
+    required this.cardId,
+    required this.direction,
+    required this.undo,
+  });
+
+  final List<DeckCard> queueBefore;
+  final int gradedCountBefore;
+  final int totalEverBefore;
+  final String cardId;
+  final ReviewDirection direction;
+  final DeckGradeUndo undo;
+}
+
+enum _FreeReviewType { vocab, kanji, kanjiVocab }
 
 const _kLevels = ['N5', 'N4', 'N3'];
 const _kCounts = [10, 20, 30, 50, 100];
@@ -51,11 +76,15 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
 
   final Set<String> _selectedKanjiLevels = {..._kLevels};
 
+  String _kanjiVocabLevel = 'N5';
+  final Set<String> _selectedKanjiVocabChunkKeys = {};
+
   List<DeckCard>? _queue;
   int _uniqueCount = 0;
   int _totalEver = 0;
   int _gradedCount = 0;
   int _stage = 0;
+  final List<_FreeReviewHistoryEntry> _history = [];
 
   List<DeckCard> _vocabEligible(List<VocabWeekGroup> weekGroups) {
     final cards = <DeckCard>[];
@@ -73,16 +102,28 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
         .toList();
   }
 
+  List<DeckCard> _kanjiVocabEligible(List<KanjiVocabChunk> chunks) {
+    final cards = <DeckCard>[];
+    for (final chunk in chunks) {
+      if (_selectedKanjiVocabChunkKeys.contains(chunk.key)) cards.addAll(chunk.cards);
+    }
+    return cards;
+  }
+
   void _start(List<DeckCard> pool) {
     if (pool.isEmpty) return;
     final shuffled = List.of(pool)..shuffle(Random());
-    final selected = shuffled.take(_count ?? shuffled.length).toList();
+    // Only kanji review is count-limited — vocab and kanji-vocab pools are
+    // deck-based, so the whole selection is always studied.
+    final limit = _type == _FreeReviewType.kanji ? (_count ?? shuffled.length) : shuffled.length;
+    final selected = shuffled.take(limit).toList();
     setState(() {
       _queue = selected;
       _uniqueCount = selected.length;
       _totalEver = selected.length;
       _gradedCount = 0;
       _stage = 0;
+      _history.clear();
     });
   }
 
@@ -90,12 +131,29 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
     setState(() {
       _queue = null;
       _stage = 0;
+      _history.clear();
     });
   }
 
-  void _grade(DeckCard card, {required bool correct}) {
-    ref.read(deckReviewActionsProvider.notifier).gradeReview(card.id, _direction, correct: correct);
+  Future<void> _grade(DeckCard card, {required bool correct}) async {
+    final queueBefore = List.of(_queue!);
+    final gradedCountBefore = _gradedCount;
+    final totalEverBefore = _totalEver;
+    final undo = await ref
+        .read(deckReviewActionsProvider.notifier)
+        .gradeReview(card.id, _direction, correct: correct);
+    if (!mounted) return;
     setState(() {
+      _history.add(
+        _FreeReviewHistoryEntry(
+          queueBefore: queueBefore,
+          gradedCountBefore: gradedCountBefore,
+          totalEverBefore: totalEverBefore,
+          cardId: card.id,
+          direction: _direction,
+          undo: undo,
+        ),
+      );
       final queue = _queue!;
       queue.removeAt(0);
       _gradedCount++;
@@ -108,27 +166,49 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
     });
   }
 
+  /// Undoes the most recent grade — restores the local queue to exactly
+  /// how it looked beforehand and reverts the SRS write that grade made.
+  /// Calling it repeatedly walks back through the whole session.
+  Future<void> _revert() async {
+    if (_history.isEmpty) return;
+    final entry = _history.removeLast();
+    await ref
+        .read(deckReviewActionsProvider.notifier)
+        .undoGradeReview(entry.cardId, entry.direction, entry.undo.previousProgress, entry.undo.reviewEventId);
+    if (!mounted) return;
+    setState(() {
+      _queue = entry.queueBefore;
+      _gradedCount = entry.gradedCountBefore;
+      _totalEver = entry.totalEverBefore;
+      _stage = 0;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final allCards = ref.watch(deckCardsProvider).value ?? const [];
     final weekGroups = ref.watch(vocabWeekGroupsProvider);
+    final kanjiVocabChunks = ref.watch(kanjiVocabChunksProvider(_kanjiVocabLevel));
     final queue = _queue;
 
     if (queue != null) {
       return _buildSession(context, queue);
     }
-    return _buildConfig(context, allCards, weekGroups);
+    return _buildConfig(context, allCards, weekGroups, kanjiVocabChunks);
   }
 
   Widget _buildConfig(
     BuildContext context,
     List<DeckCard> allCards,
     List<VocabWeekGroup> weekGroups,
+    List<KanjiVocabChunk> kanjiVocabChunks,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-    final pool = _type == _FreeReviewType.vocab
-        ? _vocabEligible(weekGroups)
-        : _kanjiEligible(allCards);
+    final pool = switch (_type) {
+      _FreeReviewType.vocab => _vocabEligible(weekGroups),
+      _FreeReviewType.kanji => _kanjiEligible(allCards),
+      _FreeReviewType.kanjiVocab => _kanjiVocabEligible(kanjiVocabChunks),
+    };
     final eligibleCount = pool.length;
 
     return SingleChildScrollView(
@@ -144,62 +224,69 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
             ).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.6)),
           ),
           const SizedBox(height: 20),
-          SegmentedButton<_FreeReviewType>(
+          ReviewSegmentedControl<_FreeReviewType>(
             segments: const [
-              ButtonSegment(value: _FreeReviewType.vocab, label: Text('Vocab')),
-              ButtonSegment(value: _FreeReviewType.kanji, label: Text('Kanji')),
+              ReviewSegment(value: _FreeReviewType.vocab, label: 'Vocab'),
+              ReviewSegment(value: _FreeReviewType.kanji, label: 'Kanji'),
+              ReviewSegment(value: _FreeReviewType.kanjiVocab, label: 'Kanji Vocab'),
             ],
-            showSelectedIcon: false,
-            selected: {_type},
-            onSelectionChanged: (selection) => setState(() => _type = selection.first),
+            selected: _type,
+            onChanged: (value) => setState(() => _type = value),
           ),
           const SizedBox(height: 20),
-          SegmentedButton<ReviewDirection>(
+          ReviewSegmentedControl<ReviewDirection>(
             segments: const [
-              ButtonSegment(value: ReviewDirection.jpToEn, label: Text('JP → EN')),
-              ButtonSegment(value: ReviewDirection.enToJp, label: Text('EN → JP')),
+              ReviewSegment(value: ReviewDirection.jpToEn, label: 'JP → EN'),
+              ReviewSegment(value: ReviewDirection.enToJp, label: 'EN → JP'),
             ],
-            showSelectedIcon: false,
-            selected: {_direction},
-            onSelectionChanged: (selection) => setState(() => _direction = selection.first),
+            selected: _direction,
+            onChanged: (value) => setState(() => _direction = value),
           ),
           const SizedBox(height: 20),
-          Text('How many words', style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final count in _kCounts)
+          // Vocab and Kanji Vocab pools are deck-based — the picker below
+          // already determines how many words are in scope, so a count
+          // selector only makes sense for kanji, which is picked by level.
+          if (_type == _FreeReviewType.kanji) ...[
+            Text('How many kanji', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final count in _kCounts)
+                  ChoiceChip(
+                    label: Text('$count'),
+                    selected: _count == count,
+                    onSelected: (_) => setState(() => _count = count),
+                    selectedColor: colorScheme.secondary.withValues(alpha: 0.16),
+                    side: BorderSide.none,
+                    backgroundColor: colorScheme.surfaceContainerHighest,
+                  ),
                 ChoiceChip(
-                  label: Text('$count'),
-                  selected: _count == count,
-                  onSelected: (_) => setState(() => _count = count),
+                  label: const Text('All'),
+                  selected: _count == null,
+                  onSelected: (_) => setState(() => _count = null),
                   selectedColor: colorScheme.secondary.withValues(alpha: 0.16),
                   side: BorderSide.none,
                   backgroundColor: colorScheme.surfaceContainerHighest,
                 ),
-              ChoiceChip(
-                label: const Text('All'),
-                selected: _count == null,
-                onSelected: (_) => setState(() => _count = null),
-                selectedColor: colorScheme.secondary.withValues(alpha: 0.16),
-                side: BorderSide.none,
-                backgroundColor: colorScheme.surfaceContainerHighest,
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          if (_type == _FreeReviewType.vocab)
-            _buildVocabPicker(context, weekGroups)
-          else
-            _buildKanjiPicker(context),
+              ],
+            ),
+            const SizedBox(height: 20),
+          ],
+          switch (_type) {
+            _FreeReviewType.vocab => _buildVocabPicker(context, weekGroups),
+            _FreeReviewType.kanji => _buildKanjiPicker(context),
+            _FreeReviewType.kanjiVocab => _buildKanjiVocabPicker(context, kanjiVocabChunks),
+          },
           const SizedBox(height: 24),
           Text(
             eligibleCount == 0
-                ? (_type == _FreeReviewType.vocab
-                      ? 'Select at least one week'
-                      : 'Select at least one level')
+                ? switch (_type) {
+                    _FreeReviewType.vocab => 'Select at least one week',
+                    _FreeReviewType.kanji => 'Select at least one level',
+                    _FreeReviewType.kanjiVocab => 'Select at least one set',
+                  }
                 : '$eligibleCount word${eligibleCount == 1 ? '' : 's'} match this selection',
             style: Theme.of(
               context,
@@ -208,9 +295,14 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
-            child: FilledButton(
+            child: FilledButton.icon(
               onPressed: eligibleCount == 0 ? null : () => _start(pool),
-              child: const Text('Start free review'),
+              icon: const Icon(Icons.play_arrow_rounded, size: 20),
+              label: const Text('Start free review'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
             ),
           ),
         ],
@@ -360,26 +452,85 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
     );
   }
 
-  Widget _buildSession(BuildContext context, List<DeckCard> queue) {
+  Widget _buildKanjiVocabPicker(BuildContext context, List<KanjiVocabChunk> chunks) {
     final colorScheme = Theme.of(context).colorScheme;
-
-    if (queue.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.check_circle_rounded, size: 48, color: colorScheme.primary),
-              const SizedBox(height: 12),
-              Text('Session complete', style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 8),
-              Text('Reviewed $_uniqueCount word${_uniqueCount == 1 ? '' : 's'}.'),
-              const SizedBox(height: 20),
-              FilledButton(onPressed: _endSession, child: const Text('Start another session')),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Level', style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final level in _kLevels)
+              ChoiceChip(
+                label: Text(level),
+                selected: _kanjiVocabLevel == level,
+                onSelected: (_) => setState(() => _kanjiVocabLevel = level),
+                selectedColor: colorScheme.primary.withValues(alpha: 0.16),
+                side: BorderSide.none,
+                backgroundColor: colorScheme.surfaceContainerHighest,
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text('Sets', style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 260,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colorScheme.surfaceContainerHighest),
+            ),
+            child: chunks.isEmpty
+                ? Center(
+                    child: Text(
+                      'No sets for this level',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: chunks.length,
+                    separatorBuilder: (context, index) =>
+                        Divider(height: 1, color: colorScheme.surfaceContainerHighest),
+                    itemBuilder: (context, index) {
+                      final chunk = chunks[index];
+                      final selected = _selectedKanjiVocabChunkKeys.contains(chunk.key);
+                      return CheckboxListTile(
+                        dense: true,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        value: selected,
+                        onChanged: (_) => setState(() {
+                          if (selected) {
+                            _selectedKanjiVocabChunkKeys.remove(chunk.key);
+                          } else {
+                            _selectedKanjiVocabChunkKeys.add(chunk.key);
+                          }
+                        }),
+                        title: Text(chunk.label, style: Theme.of(context).textTheme.bodyMedium),
+                        subtitle: Text(
+                          '${chunk.cards.length} words',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      );
+                    },
+                  ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildSession(BuildContext context, List<DeckCard> queue) {
+    if (queue.isEmpty) {
+      return ReviewEmptyState(
+        icon: Icons.check_circle_rounded,
+        title: 'Session complete',
+        message: 'Reviewed $_uniqueCount word${_uniqueCount == 1 ? '' : 's'}.',
+        action: FilledButton(onPressed: _endSession, child: const Text('Start another session')),
       );
     }
 
@@ -392,18 +543,26 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
       child: Column(
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                '${_gradedCount + 1} of $_totalEver',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
+              Expanded(
+                child: ReviewProgressBar(current: _gradedCount + 1, total: _totalEver),
               ),
-              TextButton(onPressed: _endSession, child: const Text('End session')),
+              const SizedBox(width: 8),
+              ReviewIconButton(
+                icon: Icons.undo_rounded,
+                tooltip: 'Revert last grade',
+                onPressed: _history.isEmpty ? null : _revert,
+              ),
+              const SizedBox(width: 8),
+              ReviewIconButton(
+                icon: Icons.close_rounded,
+                tooltip: 'End session',
+                onPressed: _endSession,
+              ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           Expanded(
             child: Center(
               child: GestureDetector(
@@ -415,31 +574,11 @@ class _FreeReviewSectionState extends ConsumerState<FreeReviewSection> {
             ),
           ),
           const SizedBox(height: 20),
-          if (_stage >= maxStage)
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _grade(card, correct: false),
-                    child: const Text('Again'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () => _grade(card, correct: true),
-                    child: const Text('Good'),
-                  ),
-                ),
-              ],
-            )
-          else
-            Text(
-              'Tap the card to reveal',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.5)),
-            ),
+          ReviewGradeArea(
+            revealed: _stage >= maxStage,
+            onAgain: () => _grade(card, correct: false),
+            onGood: () => _grade(card, correct: true),
+          ),
         ],
       ),
     );

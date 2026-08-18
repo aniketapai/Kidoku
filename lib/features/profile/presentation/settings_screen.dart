@@ -1,19 +1,21 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../core/auth/auth_repository.dart';
 import '../../../core/database/providers.dart';
+import '../../../core/router/app_routes.dart';
 import '../../../core/utils/date_format.dart';
 import '../../backup/data/backup_repository.dart';
 import '../../reader/data/user_word_repository.dart';
 import 'widgets/profile_section_card.dart';
 
 /// Reached from the settings button on ProfileScreen. Everything shown here
-/// is real (account info, live app version, sign out, account deletion) —
-/// no placeholder toggles for features the app doesn't have yet (theme,
-/// notifications).
+/// is real (account info, live app version, sign out, account deletion,
+/// notifications) — no placeholder toggles for features the app doesn't
+/// have yet (theme).
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
@@ -39,7 +41,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _loadBackupStatus() async {
     try {
-      final lastBackupAt = await ref.read(backupRepositoryProvider).lastBackupAt();
+      final lastBackupAt = await ref
+          .read(backupRepositoryProvider)
+          .lastBackupAt();
       if (mounted) {
         setState(() {
           _lastBackupAt = lastBackupAt;
@@ -52,7 +56,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   bool get _canBackUpNow =>
-      _lastBackupAt == null || DateTime.now().difference(_lastBackupAt!) >= _kBackupCooldown;
+      _lastBackupAt == null ||
+      DateTime.now().difference(_lastBackupAt!) >= _kBackupCooldown;
 
   Future<void> _backUpNow() async {
     setState(() => _backingUp = true);
@@ -63,15 +68,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _lastBackupAt = DateTime.now();
           _backingUp = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Backup complete.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Backup complete.')));
       }
     } catch (_) {
       if (mounted) {
         setState(() => _backingUp = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Couldn't back up — check your connection and try again.")),
+          const SnackBar(
+            content: Text(
+              "Couldn't back up — check your connection and try again.",
+            ),
+          ),
         );
       }
     }
@@ -82,7 +91,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Sign out?'),
-        content: const Text("You'll need to sign in again to access your progress."),
+        content: const Text(
+          "You'll need to sign in again to access your progress.",
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -106,7 +117,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (mounted) {
         setState(() => _signingOut = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Couldn't sign out — check your connection and try again.")),
+          const SnackBar(
+            content: Text(
+              "Couldn't sign out — check your connection and try again.",
+            ),
+          ),
         );
       }
     }
@@ -128,7 +143,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
             child: const Text('Delete'),
           ),
         ],
@@ -152,14 +169,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (mounted) setState(() => _deletingAccount = false);
       if (e.code != GoogleSignInExceptionCode.canceled && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Couldn't verify your account — please try again.")),
+          const SnackBar(
+            content: Text("Couldn't verify your account — please try again."),
+          ),
         );
       }
     } catch (_) {
       if (mounted) {
         setState(() => _deletingAccount = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Couldn't delete account — check your connection and try again.")),
+          const SnackBar(
+            content: Text(
+              "Couldn't delete account — check your connection and try again.",
+            ),
+          ),
         );
       }
     }
@@ -177,9 +200,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
         children: [
           if (user != null) ...[
-            ProfileSectionCard(title: 'Account', child: _AccountRow(user: user)),
+            ProfileSectionCard(
+              title: 'Account',
+              child: _AccountRow(user: user),
+            ),
             const SizedBox(height: 16),
           ],
+          ProfileSectionCard(
+            title: 'Notifications',
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                Icons.notifications_rounded,
+                color: colorScheme.primary,
+              ),
+              title: const Text('Study & review reminders'),
+              subtitle: const Text(
+                'Reminders, review-due nudges, and motivational messages.',
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.push(AppRoutes.notificationSettings),
+            ),
+          ),
+          const SizedBox(height: 16),
           ProfileSectionCard(
             title: 'Backup',
             child: _BackupSection(
@@ -199,14 +242,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onPressed: _signingOut ? null : _confirmSignOut,
               style: OutlinedButton.styleFrom(
                 foregroundColor: colorScheme.error,
-                side: BorderSide(color: colorScheme.error.withValues(alpha: 0.4)),
+                side: BorderSide(
+                  color: colorScheme.error.withValues(alpha: 0.4),
+                ),
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               icon: _signingOut
                   ? SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.error),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colorScheme.error,
+                      ),
                     )
                   : const Icon(Icons.logout_rounded),
               label: const Text('Sign out'),
@@ -216,12 +264,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Center(
             child: TextButton.icon(
               onPressed: _deletingAccount ? null : _confirmDeleteAccount,
-              style: TextButton.styleFrom(foregroundColor: colorScheme.error.withValues(alpha: 0.8)),
+              style: TextButton.styleFrom(
+                foregroundColor: colorScheme.error.withValues(alpha: 0.8),
+              ),
               icon: _deletingAccount
                   ? SizedBox(
                       width: 14,
                       height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.error),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: colorScheme.error,
+                      ),
                     )
                   : const Icon(Icons.delete_outline_rounded, size: 18),
               label: const Text('Delete account'),
@@ -261,14 +314,17 @@ class _AccountRow extends StatelessWidget {
             children: [
               Text(
                 user.displayName ?? 'Signed in',
-                style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               if (user.email != null) ...[
                 const SizedBox(height: 2),
                 Text(
                   user.email!,
-                  style: textTheme.bodySmall
-                      ?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.6)),
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
                 ),
               ],
             ],
@@ -296,7 +352,9 @@ class _AboutSection extends StatelessWidget {
             Text('Version', style: textTheme.bodyMedium),
             Text(
               '1.0.0',
-              style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.6)),
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
             ),
           ],
         ),
@@ -306,7 +364,9 @@ class _AboutSection extends StatelessWidget {
         Text(
           'Dictionary data from JMdict/EDICT (Electronic Dictionary Research '
           'and Development Group), used under CC BY-SA 4.0.',
-          style: textTheme.labelSmall?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.5)),
+          style: textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurface.withValues(alpha: 0.5),
+          ),
         ),
       ],
     );
@@ -339,7 +399,8 @@ class _BackupSection extends StatelessWidget {
 
   String? _cooldownText() {
     if (canBackUpNow || lastBackupAt == null) return null;
-    final remaining = _kBackupCooldown - DateTime.now().difference(lastBackupAt!);
+    final remaining =
+        _kBackupCooldown - DateTime.now().difference(lastBackupAt!);
     final hours = remaining.inHours;
     final minutes = remaining.inMinutes % 60;
     return 'You can back up again in ${hours}h ${minutes}m';
@@ -358,7 +419,9 @@ class _BackupSection extends StatelessWidget {
           'Saves your words, review progress, achievements, and reading '
           'history to the cloud so you can restore them after signing in on '
           'a new device. Only happens when you tap the button below.',
-          style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.7)),
+          style: textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
         ),
         const SizedBox(height: 12),
         Text(_statusText(), style: textTheme.bodyMedium),
@@ -366,19 +429,26 @@ class _BackupSection extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             cooldownText,
-            style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurface.withValues(alpha: 0.6)),
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
           ),
         ],
         const SizedBox(height: 12),
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
-            onPressed: (loading || backingUp || !canBackUpNow) ? null : onBackUpNow,
+            onPressed: (loading || backingUp || !canBackUpNow)
+                ? null
+                : onBackUpNow,
             icon: backingUp
                 ? const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Icon(Icons.cloud_upload_rounded),
             label: const Text('Back up now'),
@@ -388,4 +458,3 @@ class _BackupSection extends StatelessWidget {
     );
   }
 }
-

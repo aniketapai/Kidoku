@@ -30,6 +30,11 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // flutter_local_notifications' Android library is itself built
+        // with core library desugaring enabled — AGP requires every
+        // consuming module (this app) to enable it too, or the build
+        // fails with "Dependency ... requires core library desugaring".
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -82,6 +87,8 @@ dependencies {
     // Camera Translate's OCR only recognizes Japanese — see
     // TextRecognitionScript.japanese in ocr_translation_service.dart.
     implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
+    // Required alongside isCoreLibraryDesugaringEnabled above.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 flutter {
