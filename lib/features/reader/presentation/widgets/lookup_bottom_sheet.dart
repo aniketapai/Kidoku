@@ -13,7 +13,10 @@ import '../../application/dictionary_lookup_provider.dart';
 import '../../application/user_word_actions_provider.dart';
 import '../../application/user_word_provider.dart';
 
-Future<void> showLookupBottomSheet(BuildContext context, String dictionaryForm) async {
+Future<void> showLookupBottomSheet(
+  BuildContext context,
+  String dictionaryForm,
+) async {
   final container = ProviderScope.containerOf(context, listen: false);
   // Resolve the entry *before* opening the sheet. A FutureProvider always
   // renders its `loading` state for at least one frame even when the
@@ -21,7 +24,9 @@ Future<void> showLookupBottomSheet(BuildContext context, String dictionaryForm) 
   // synchronously — so watching it from inside the sheet meant a bare
   // spinner popup flashed in front of the real one on every tap. Awaiting
   // here means the sheet only ever appears already showing the real word.
-  final entry = await container.read(dictionaryLookupProvider(dictionaryForm).future);
+  final entry = await container.read(
+    dictionaryLookupProvider(dictionaryForm).future,
+  );
   if (!context.mounted) return;
   return showModalBottomSheet(
     context: context,
@@ -38,12 +43,17 @@ Future<void> showLookupBottomSheet(BuildContext context, String dictionaryForm) 
       reverseCurve: Curves.easeInCubic,
       reverseDuration: Duration(milliseconds: 200),
     ),
-    builder: (context) => LookupBottomSheet(dictionaryForm: dictionaryForm, entry: entry),
+    builder: (context) =>
+        LookupBottomSheet(dictionaryForm: dictionaryForm, entry: entry),
   );
 }
 
 class LookupBottomSheet extends ConsumerWidget {
-  const LookupBottomSheet({super.key, required this.dictionaryForm, required this.entry});
+  const LookupBottomSheet({
+    super.key,
+    required this.dictionaryForm,
+    required this.entry,
+  });
 
   final String dictionaryForm;
 
@@ -64,73 +74,101 @@ class LookupBottomSheet extends ConsumerWidget {
       child: Container(
         margin: const EdgeInsets.all(12),
         padding: const EdgeInsets.all(20),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+        ),
         decoration: BoxDecoration(
           color: colorScheme.surface,
           borderRadius: BorderRadius.circular(24),
         ),
         child: entry == null
-            ? Text('No dictionary entry for "$dictionaryForm".', style: textTheme.bodyMedium)
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(entry.reading,
+            ? Text(
+                'No dictionary entry for "$dictionaryForm".',
+                style: textTheme.bodyMedium,
+              )
+            : SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                entry.reading,
                                 style: textTheme.bodyMedium?.copyWith(
-                                  color: colorScheme.onSurface.withValues(alpha: 0.6),
-                                )),
-                            Text(entry.dictionaryForm, style: textTheme.headlineSmall),
-                          ],
+                                  color: colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                entry.dictionaryForm,
+                                style: textTheme.headlineSmall,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      JlptLevelChip(level: entry.jlptLevel),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(entry.partOfSpeech,
+                        JlptLevelChip(level: entry.jlptLevel),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      entry.partOfSpeech,
                       style: textTheme.labelMedium?.copyWith(
                         color: colorScheme.onSurface.withValues(alpha: 0.5),
-                      )),
-                  _KanjiLevelTags(word: entry.dictionaryForm, kanjiLevels: kanjiLevels),
-                  const SizedBox(height: 12),
-                  Text(decodeMeanings(entry.meanings), style: textTheme.bodyLarge),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => ref
-                              .read(userWordActionsProvider.notifier)
-                              .markKnown(dictionaryForm),
-                          icon: const Icon(Icons.check_circle_outline),
-                          label: Text(
-                            userWordAsync.value?.status == WordStatus.known
-                                ? 'Known'
-                                : 'Mark Known',
+                      ),
+                    ),
+                    _KanjiLevelTags(
+                      word: entry.dictionaryForm,
+                      kanjiLevels: kanjiLevels,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      decodeMeanings(entry.meanings),
+                      style: textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => ref
+                                .read(userWordActionsProvider.notifier)
+                                .markKnown(dictionaryForm),
+                            icon: const Icon(Icons.check_circle_outline),
+                            label: Text(
+                              userWordAsync.value?.status == WordStatus.known
+                                  ? 'Known'
+                                  : 'Mark Known',
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton.icon(
-                          style: FilledButton.styleFrom(backgroundColor: colorScheme.secondary),
-                          onPressed: () =>
-                              ref.read(userWordActionsProvider.notifier).save(dictionaryForm),
-                          icon: const Icon(Icons.bookmark_add_outlined),
-                          label: Text(
-                            userWordAsync.value?.status == WordStatus.saved ? 'Saved' : 'Save',
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: colorScheme.secondary,
+                            ),
+                            onPressed: () => ref
+                                .read(userWordActionsProvider.notifier)
+                                .save(dictionaryForm),
+                            icon: const Icon(Icons.bookmark_add_outlined),
+                            label: Text(
+                              userWordAsync.value?.status == WordStatus.saved
+                                  ? 'Saved'
+                                  : 'Save',
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
       ),
     );
@@ -170,10 +208,11 @@ class _KanjiLevelTags extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: (kanjiLevels[ch] != null
-                          ? JlptColors.forLevel(kanjiLevels[ch])
-                          : colorScheme.onSurface)
-                      .withValues(alpha: 0.16),
+                  color:
+                      (kanjiLevels[ch] != null
+                              ? JlptColors.forLevel(kanjiLevels[ch])
+                              : colorScheme.onSurface)
+                          .withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
