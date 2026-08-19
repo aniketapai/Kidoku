@@ -196,7 +196,7 @@ class _ChatHeader extends StatelessWidget {
                 colors: [colorScheme.primary, colorScheme.secondary],
               ),
             ),
-            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 20),
+            child: Icon(Icons.auto_awesome_rounded, color: colorScheme.onPrimary, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(

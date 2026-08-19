@@ -9,6 +9,7 @@ import '../../../core/database/providers.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/utils/date_format.dart';
 import '../../backup/data/backup_repository.dart';
+import '../../backup/presentation/restore_prompt.dart';
 import '../../reader/data/user_word_repository.dart';
 import 'widgets/profile_section_card.dart';
 
@@ -110,6 +111,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     setState(() => _signingOut = true);
     try {
+      // Local progress (decks, reviews, achievements, story/reel progress,
+      // settings) isn't scoped per account — it's a single on-device store
+      // for whoever is currently signed in. Wipe it before switching users
+      // so the next account doesn't inherit this one's data, and reset the
+      // restore-offered flag so that account gets its own restore prompt.
+      await ref.read(appDatabaseProvider).clearUserData();
+      await resetRestoreOfferedFlag();
       await ref.read(authRepositoryProvider).signOut();
       // No manual navigation needed — the router's auth redirect reacts to
       // the resulting authStateChanges event and sends us to sign-in.
@@ -442,12 +450,12 @@ class _BackupSection extends StatelessWidget {
                 ? null
                 : onBackUpNow,
             icon: backingUp
-                ? const SizedBox(
+                ? SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: colorScheme.onPrimary,
                     ),
                   )
                 : const Icon(Icons.cloud_upload_rounded),

@@ -58,7 +58,17 @@ import '../tables/deck_cards_table.dart';
 /// clean Week 1 → Week 26 sequence instead of the new categories being
 /// interleaved into the old sortOrder gaps. No words, meanings, or other
 /// fields were changed.
-const kSeedVersion = 10;
+///
+/// v11: fixed build_dictionary.py's JLPT level lookup two ways. It used
+/// `re.search` (first match only) against tag strings that often carry more
+/// than one `JLPT_<n>` tag on the same row (e.g. "JLPT_1 JLPT JLPT_2"), so
+/// ~29% of leveled words got whichever tag happened to appear first in the
+/// string instead of the intended easiest (highest N) one — dictionary_seed
+/// now uses every tag on a row. Also hand-overrode a couple dozen basic
+/// greetings/set phrases (こんにちは, ありがとう, すみません, etc.) that the
+/// upstream JLPT word list — being a vocabulary list, not a phrasebook —
+/// mis-tags as N2/N3 or leaves untagged entirely.
+const kSeedVersion = 11;
 
 /// Loads assets/seed/*.json into [AppDatabase] on first launch: real JMdict
 /// dictionary entries and the JLPT Anki decks produced by the ingestion/

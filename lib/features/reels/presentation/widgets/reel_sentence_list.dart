@@ -153,7 +153,7 @@ class _ReelSentenceBlock extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isCurrent
-              ? AppColors.secondaryDark.withValues(alpha: 0.14)
+              ? AppColors.secondary.withValues(alpha: 0.14)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           // Border is always present (just transparent when not current),
@@ -165,7 +165,7 @@ class _ReelSentenceBlock extends StatelessWidget {
           // reading as the whole screen bouncing.
           border: Border.all(
             color: isCurrent
-                ? AppColors.secondaryDark.withValues(alpha: 0.35)
+                ? AppColors.secondary.withValues(alpha: 0.35)
                 : Colors.transparent,
           ),
         ),
@@ -203,7 +203,7 @@ class _ReelSentenceBlock extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontStyle: FontStyle.italic,
-                  color: AppColors.primaryDark.withValues(alpha: 0.85),
+                  color: AppColors.primary.withValues(alpha: 0.85),
                 ),
               ),
             ],
@@ -235,8 +235,8 @@ class _ReelTokenChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasReading = showFurigana && token.reading != null && token.reading!.isNotEmpty;
     final color = switch (state) {
-      _TokenHighlight.current => AppColors.secondaryDark,
-      _TokenHighlight.spoken => AppColors.primaryDark,
+      _TokenHighlight.current => AppColors.secondary,
+      _TokenHighlight.spoken => AppColors.primary,
       _TokenHighlight.upcoming => Colors.white.withValues(alpha: 0.55),
     };
 
@@ -272,7 +272,7 @@ class _ReelTokenChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 2),
           decoration: BoxDecoration(
             color: state == _TokenHighlight.current
-                ? AppColors.secondaryDark.withValues(alpha: 0.22)
+                ? AppColors.secondary.withValues(alpha: 0.22)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(6),
           ),

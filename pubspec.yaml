@@ -76,8 +76,8 @@ dev_dependencies:
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
-# Kidoku app icon — "Ai to Shu" (indigo -> vermillion) gradient badge with
-# the app's own book glyph (Icons.menu_book_rounded), regenerate with:
+# Kidoku app icon — cream -> mint gradient badge with the app's own book
+# glyph (Icons.menu_book_rounded), regenerate with:
 #   dart run flutter_launcher_icons
 flutter_launcher_icons:
   android: true
@@ -90,21 +90,21 @@ flutter_launcher_icons:
   web:
     generate: true
     image_path: "assets/icon/icon.png"
-    background_color: "#2D3E63"
-    theme_color: "#2D3E63"
+    background_color: "#EAE3CC"
+    theme_color: "#EAE3CC"
 
-# Kidoku splash screen — same gradient badge, shown on the app's own
-# background colors. Regenerate with:
+# Kidoku splash screen — same gradient badge, shown on the app's dark
+# background (the app has no light mode). Regenerate with:
 #   dart run flutter_native_splash:create
 flutter_native_splash:
-  color: "#F7F3EA"
-  color_dark: "#15151A"
+  color: "#17171A"
+  color_dark: "#17171A"
   image: "assets/icon/splash_logo.png"
   android_12:
     image: "assets/icon/splash_logo_android12.png"
-    icon_background_color: "#2D3E63"
+    icon_background_color: "#EAE3CC"
     image_dark: "assets/icon/splash_logo_android12.png"
-    icon_background_color_dark: "#8FA8D8"
+    icon_background_color_dark: "#EAE3CC"
   web: false
 
 # The following section is specific to Flutter packages.

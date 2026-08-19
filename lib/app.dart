@@ -39,8 +39,8 @@ class _KidokuAppState extends ConsumerState<KidokuApp> {
     return MaterialApp.router(
       title: 'Kidoku',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
+      theme: AppTheme.dark,
+      themeMode: ThemeMode.dark,
       routerConfig: appRouter,
     );
   }

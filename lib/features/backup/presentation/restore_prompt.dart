@@ -23,6 +23,15 @@ const _kRestoreOfferedKey = 'backup_restore_offered_v1';
 /// database is empty): there's no "later" UI, so once answered (restore or
 /// skip) we don't ask again. Failures are swallowed — a missed restore
 /// prompt shouldn't block using the app.
+/// Clears the "already offered" flag so the next signed-in account gets its
+/// own chance at the restore prompt. Called on sign-out, since the flag is
+/// otherwise a single per-device value with no notion of *which* account it
+/// was answered for.
+Future<void> resetRestoreOfferedFlag() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.remove(_kRestoreOfferedKey);
+}
+
 Future<void> maybeOfferRestore(BuildContext context, WidgetRef ref) async {
   try {
     final prefs = await SharedPreferences.getInstance();

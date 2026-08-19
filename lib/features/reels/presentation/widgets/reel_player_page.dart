@@ -111,7 +111,7 @@ class _ReelPlayerPageState extends ConsumerState<ReelPlayerPage> {
     final reelAsync = ref.watch(reelProvider(widget.meta.file));
 
     return ColoredBox(
-      color: AppColors.backgroundDark,
+      color: AppColors.background,
       child: SafeArea(
         child: Stack(
           children: [
@@ -292,7 +292,7 @@ class _ReelIconButton extends StatelessWidget {
         button: true,
         label: semanticLabel,
         child: Material(
-          color: active ? AppColors.secondaryDark : Colors.black.withValues(alpha: 0.6),
+          color: active ? AppColors.secondary : Colors.black.withValues(alpha: 0.6),
           shape: const CircleBorder(),
           elevation: active ? 3 : 0,
           child: InkWell(
@@ -300,7 +300,7 @@ class _ReelIconButton extends StatelessWidget {
             onTap: onTap,
             child: Padding(
               padding: const EdgeInsets.all(10),
-              child: Icon(icon, color: Colors.white, size: 22),
+              child: Icon(icon, color: active ? AppColors.onSecondary : Colors.white, size: 22),
             ),
           ),
         ),

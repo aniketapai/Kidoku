@@ -21,21 +21,57 @@ _SOURCE_URL = (
 _LEVEL_RE = re.compile(r"JLPT_(\d)")
 _CACHE_NAME = "jlpt_all.csv"
 
+# The upstream list is compiled from formal JLPT vocabulary lists, which
+# (being vocabulary lists, not phrasebooks) systematically omit or mis-tag
+# everyday set phrases/greetings — e.g. it tags こんにちは and ありがとう as
+# N2/N3, and doesn't tag すみません or よろしく at all. These are taught in
+# the first lesson of every N5 course, so hand-override them rather than
+# trust the source data.
+_OVERRIDES = {
+    "こんにちは": "N5",
+    "今日は": "N5",
+    "こんばんは": "N5",
+    "おはよう": "N5",
+    "おはようございます": "N5",
+    "さようなら": "N5",
+    "すみません": "N5",
+    "ありがとう": "N5",
+    "ありがとうございます": "N5",
+    "おやすみ": "N5",
+    "おやすみなさい": "N5",
+    "いただきます": "N5",
+    "ごちそうさま": "N5",
+    "ごちそうさまでした": "N5",
+    "どういたしまして": "N5",
+    "はじめまして": "N5",
+    "よろしく": "N5",
+    "よろしくお願いします": "N5",
+    "失礼します": "N5",
+    "お願いします": "N5",
+    "ただいま": "N5",
+    "お帰りなさい": "N5",
+}
+
 
 def load_jlpt_levels(cache_dir: Path) -> dict[str, str]:
     raw = net.fetch_cached(_SOURCE_URL, cache_dir / _CACHE_NAME)
     reader = csv.DictReader(io.StringIO(raw.decode("utf-8")))
 
     # A handful of expressions appear under more than one level (different
-    # senses tagged separately upstream) — keep the easiest (highest N
-    # number) so we never over-flag a word a beginner already knows.
+    # senses tagged separately upstream, or — common for a single row —
+    # more than one JLPT_<n> tag on the same row) — keep the easiest
+    # (highest N number) so we never over-flag a word a beginner already
+    # knows. `.finditer` (not `.search`, which only returns the first
+    # match) so every JLPT_<n> tag on a row is counted, not just whichever
+    # happens to appear first in the tag string.
     levels_by_expression: dict[str, set[int]] = defaultdict(set)
     for row in reader:
-        match = _LEVEL_RE.search(row["tags"])
-        if match:
+        for match in _LEVEL_RE.finditer(row["tags"]):
             levels_by_expression[row["expression"]].add(int(match.group(1)))
 
-    return {
-        expression: f"N{max(levels)}"
-        for expression, levels in levels_by_expression.items()
+    levels = {
+        expression: f"N{max(digits)}"
+        for expression, digits in levels_by_expression.items()
     }
+    levels.update(_OVERRIDES)
+    return levels

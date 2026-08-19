@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Small vermillion due-count badge that pulses gently while count > 0
+/// Small due-count badge that pulses gently while count > 0
 /// (spec section 10: scale 1 -> 1.08 -> 1, 1.5s loop).
 class PulsingBadge extends StatefulWidget {
   const PulsingBadge({super.key, required this.count});
@@ -54,6 +54,7 @@ class _PulsingBadgeState extends State<PulsingBadge>
     final scale = Tween<double>(begin: 1.0, end: 1.08).animate(
       CurvedAnimation(parent: controller, curve: Curves.easeInOut),
     );
+    final colorScheme = Theme.of(context).colorScheme;
 
     return ScaleTransition(
       scale: scale,
@@ -61,14 +62,14 @@ class _PulsingBadgeState extends State<PulsingBadge>
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
         constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.secondary,
+          color: colorScheme.secondary,
           borderRadius: BorderRadius.circular(8),
         ),
         alignment: Alignment.center,
         child: Text(
           widget.count > 99 ? '99+' : '${widget.count}',
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: colorScheme.onSecondary,
             fontSize: 9,
             fontWeight: FontWeight.bold,
             height: 1.2,

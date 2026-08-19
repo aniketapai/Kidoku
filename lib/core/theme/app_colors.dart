@@ -1,27 +1,26 @@
 import 'package:flutter/material.dart';
 
-/// "Ai to Shu" (indigo & vermillion) palette — see steps.md section 0.
+/// Dark-only fintech-inspired palette (near-black + warm cream accent +
+/// mint green). The app has no light mode, so there's a single set of
+/// colors rather than light/dark pairs.
 abstract final class AppColors {
-  static const primaryLight = Color(0xFF2D3E63);
-  static const primaryDark = Color(0xFF8FA8D8);
+  static const primary = Color(0xFFEAE3CC);
+  static const onPrimary = Color(0xFF17171A);
 
-  static const onPrimaryLight = Color(0xFFFFFFFF);
-  static const onPrimaryDark = Color(0xFF0F1729);
+  static const secondary = Color(0xFF8FE3C0);
+  static const onSecondary = Color(0xFF0F1F1A);
 
-  static const secondaryLight = Color(0xFFE6553D);
-  static const secondaryDark = Color(0xFFFF7A61);
+  static const background = Color(0xFF17171A);
+  static const onBackground = Color(0xFFF5F4EF);
 
-  static const backgroundLight = Color(0xFFF7F3EA);
-  static const backgroundDark = Color(0xFF15151A);
+  static const surface = Color(0xFF201F24);
+  static const surfaceVariant = Color(0xFF2B2A30);
 
-  static const surfaceLight = Color(0xFFFFFFFF);
-  static const surfaceDark = Color(0xFF1E1E24);
-
-  static const surfaceVariantLight = Color(0xFFEDE7D9);
-  static const surfaceVariantDark = Color(0xFF26262E);
+  static const error = Color(0xFFE2554A);
 }
 
-/// JLPT level tag colors, same across light/dark per spec.
+/// JLPT level tag colors — a separate accent system for badges, unrelated
+/// to the app's primary/secondary theme colors.
 abstract final class JlptColors {
   static const n5 = Color(0xFF4C9A6E);
   static const n4 = Color(0xFF5B8FD4);
